@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: 'Kontrol',
         short_name: 'Kontrol',
-        description: "Kevin's social media command center",
+        description: "Your social media command center",
         theme_color: '#000000',
         background_color: '#000000',
         display: 'standalone',

@@ -7,6 +7,7 @@ interface PreviewCardProps {
   selectedPostType: PostType
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void  // kept for API compatibility
+  userName?: string
 }
 
 // ─── Instagram previews ──────────────────────────────────────────────────────
@@ -498,7 +499,14 @@ function YouTubePreview({ draft }: { draft: PlatformDraft }) {
   return <YTShortPreview draft={draft} />
 }
 
-function LinkedInPreview({ draft }: { draft: PlatformDraft }) {
+function LinkedInPreview({ draft, userName }: { draft: PlatformDraft; userName?: string }) {
+  const displayName = userName ?? 'Creator'
+  const displayNameShort = (() => {
+    const parts = displayName.trim().split(/\s+/)
+    if (parts.length >= 2) return `${parts[0]} ${parts[1].charAt(0)}.`
+    return parts[0]
+  })()
+
   return (
     <div style={{
       background: '#1B1F23',
@@ -511,7 +519,7 @@ function LinkedInPreview({ draft }: { draft: PlatformDraft }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #0A66C2, #0077B5)' }} />
         <div>
-          <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 12.5, color: '#fff' }}>Kevin L.</div>
+          <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 12.5, color: '#fff' }}>{displayNameShort}</div>
           <div style={{ fontFamily: 'var(--font-body)', fontSize: 10.5, color: 'rgba(255,255,255,0.45)' }}>Solo dev • just now</div>
         </div>
       </div>
@@ -522,7 +530,10 @@ function LinkedInPreview({ draft }: { draft: PlatformDraft }) {
   )
 }
 
-function RedditPreview({ draft }: { draft: PlatformDraft }) {
+function RedditPreview({ draft, userName }: { draft: PlatformDraft; userName?: string }) {
+  const displayName = userName ?? 'Creator'
+  const redditHandle = displayName.trim().toLowerCase().replace(/\s+/g, '_')
+
   return (
     <div style={{
       background: '#1A1A1B',
@@ -534,7 +545,7 @@ function RedditPreview({ draft }: { draft: PlatformDraft }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#FF6534' }}>{draft.subreddit}</span>
-        <span style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>• posted by u/kevin</span>
+        <span style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>• posted by u/{redditHandle}</span>
       </div>
       {draft.title && (
         <div style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13.5, color: '#fff', marginBottom: 8, lineHeight: 1.4 }}>
@@ -557,7 +568,8 @@ function RedditPreview({ draft }: { draft: PlatformDraft }) {
   )
 }
 
-function XPreview({ draft }: { draft: PlatformDraft }) {
+function XPreview({ draft, userName }: { draft: PlatformDraft; userName?: string }) {
+  const displayName = userName ?? 'Creator'
   const charCount = draft.content.length
   const max = 280
   const pct = Math.min((charCount / max) * 100, 100)
@@ -577,7 +589,7 @@ function XPreview({ draft }: { draft: PlatformDraft }) {
         <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#2A2A2A', flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13, color: '#fff' }}>Kevin</span>
+            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13, color: '#fff' }}>{displayName}</span>
             <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>@kvn_dev</span>
           </div>
           <div style={{ fontFamily: 'var(--font-body)', fontSize: 13.5, color: '#fff', lineHeight: 1.5 }}>
@@ -627,15 +639,15 @@ function GenericPreview({ draft, platform }: { draft: PlatformDraft; platform: P
   )
 }
 
-export function PreviewCard({ draft, platform, selectedPostType: _selectedPostType, viewMode, onViewModeChange }: PreviewCardProps) {
+export function PreviewCard({ draft, platform, selectedPostType: _selectedPostType, viewMode, onViewModeChange, userName }: PreviewCardProps) {
   function renderPreview() {
     switch (platform.id) {
       case 'IG': return <InstagramPreview draft={draft} />
       case 'TT': return <TikTokPreview draft={draft} />
       case 'YT': return <YouTubePreview draft={draft} />
-      case 'LI': return <LinkedInPreview draft={draft} />
-      case 'RD': return <RedditPreview draft={draft} />
-      case 'X': return <XPreview draft={draft} />
+      case 'LI': return <LinkedInPreview draft={draft} userName={userName} />
+      case 'RD': return <RedditPreview draft={draft} userName={userName} />
+      case 'X': return <XPreview draft={draft} userName={userName} />
       default: return <GenericPreview draft={draft} platform={platform} />
     }
   }

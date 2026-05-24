@@ -41,11 +41,12 @@ public class ClaudeService {
     /** Zero-extras overload — no subreddits, no insights. */
     public Map<String, DraftDto> generatePosts(
             String projectName,
+            String userName,
             String projectContext,
             List<Post> recentPosts,
             String userInput,
             List<String> platforms) {
-        return generatePosts(projectName, projectContext, recentPosts, userInput, platforms,
+        return generatePosts(projectName, userName, projectContext, recentPosts, userInput, platforms,
             List.of(), List.of(), List.of(), Map.of());
     }
 
@@ -60,6 +61,7 @@ public class ClaudeService {
      */
     public Map<String, DraftDto> generatePosts(
             String projectName,
+            String userName,
             String projectContext,
             List<Post> recentPosts,
             String userInput,
@@ -85,21 +87,21 @@ public class ClaudeService {
             return placeholders;
         }
 
-        String systemPrompt = buildSystemPrompt(projectName, projectContext, recentPosts,
+        String systemPrompt = buildSystemPrompt(projectName, userName, projectContext, recentPosts,
             eligibleSubreddits, allSubreddits, insights, subredditScores);
         String userPrompt = "Generate posts for platforms: " + String.join(", ", platforms)
-            + "\n\nKevin's prompt: " + userInput;
+            + "\n\n" + userName + "'s prompt: " + userInput;
         String responseText = callClaude(systemPrompt, userPrompt, 4096);
         return parseDrafts(responseText, platforms);
     }
 
-    public String generateRedditComment(String projectContext, String subreddit,
+    public String generateRedditComment(String userName, String projectContext, String subreddit,
                                         String redditPostTitle, String redditPostBody) {
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("CLAUDE_API_KEY not set — skipping Reddit comment generation");
             return "[Add CLAUDE_API_KEY to .env to enable AI comment suggestions]";
         }
-        String system = "You are Kevin's assistant for the Kontrol social media app. Generate a genuine, helpful Reddit comment "
+        String system = "You are " + userName + "'s assistant for the Kontrol social media app. Generate a genuine, helpful Reddit comment "
             + "that adds value and naturally mentions the project when relevant. Keep it 2-4 sentences. "
             + "Return ONLY the comment text, no JSON, no explanation.\n\nProject context:\n" + projectContext;
         String user = "Subreddit: r/" + subreddit + "\nPost title: " + redditPostTitle
@@ -107,15 +109,15 @@ public class ClaudeService {
         return callClaude(system, user, 512);
     }
 
-    private String buildSystemPrompt(String projectName, String projectContext,
+    private String buildSystemPrompt(String projectName, String userName, String projectContext,
                                       List<Post> recentPosts,
                                       List<String> eligibleSubreddits,
                                       List<String> allSubreddits,
                                       List<PerformanceInsightDto> insights,
                                       Map<String, Double> subredditScores) {
         StringBuilder sb = new StringBuilder();
-        sb.append("You are Kevin's personal social media content generator inside the Kontrol app.\n");
-        sb.append("Kevin is a solo creator who uses one authentic voice across all platforms.\n\n");
+        sb.append("You are ").append(userName).append("'s personal social media content generator inside the Kontrol app.\n");
+        sb.append(userName).append(" is a solo creator who uses one authentic voice across all platforms.\n\n");
         sb.append("PROJECT: ").append(projectName).append("\n");
         sb.append(projectContext).append("\n\n");
         if (recentPosts != null && !recentPosts.isEmpty()) {

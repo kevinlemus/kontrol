@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../components/shared/Toast'
+import { settingsApi } from '../api/settings'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -548,6 +549,11 @@ export function SettingsPage() {
   const [oauthModal, setOauthModal] = useState<PlatformAccount | null>(null)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [userName, setUserName] = useState<string>(settingsApi.getCachedUserName())
+
+  useEffect(() => {
+    settingsApi.getUserSettings().then(s => setUserName(s.userName)).catch(() => {})
+  }, [])
 
   const handleDisconnect = (key: PlatformKey) => {
     setPlatforms(ps => ps.map(p =>
@@ -569,6 +575,51 @@ export function SettingsPage() {
       <SettingsHeader onBack={() => navigate(-1)} />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 48px' }}>
+
+        {/* ── Section 0: Your Name ── */}
+        <div style={{ marginBottom: 36 }}>
+          <SectionHeader
+            title="Your Name"
+            subtitle="Used in Claude prompts and content previews."
+          />
+          <div style={{
+            background: 'var(--bg-card)',
+            borderRadius: 'var(--radius-card)',
+            padding: '0 16px',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '14px 0',
+            }}>
+              <input
+                type="text"
+                value={userName}
+                onChange={e => setUserName(e.target.value)}
+                onBlur={async () => {
+                  const trimmed = userName.trim()
+                  if (trimmed) {
+                    await settingsApi.updateUserSettings({ userName: trimmed }).catch(() => {})
+                    showToast('Name saved')
+                  }
+                }}
+                placeholder="Your name"
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 15,
+                  fontWeight: 600,
+                }}
+              />
+            </div>
+          </div>
+        </div>
 
         {/* ── Section 1: Platform Accounts ── */}
         <div style={{ marginBottom: 36 }}>

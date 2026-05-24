@@ -23,6 +23,7 @@ interface ActiveCardProps {
   projectId?: string
   onSubredditChange?: (subreddit: string) => void
   insights?: PerformanceInsightDto[] | null
+  userName?: string
 }
 
 export function ActiveCard({
@@ -40,6 +41,7 @@ export function ActiveCard({
   projectId,
   onSubredditChange,
   insights,
+  userName,
 }: ActiveCardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
   const [flash, setFlash] = useState(false)
@@ -320,6 +322,7 @@ export function ActiveCard({
             selectedPostType={draft.selectedPostType}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            userName={userName}
           />
         </div>
       )}
