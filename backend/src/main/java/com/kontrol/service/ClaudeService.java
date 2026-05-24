@@ -43,19 +43,43 @@ public class ClaudeService {
             List<Post> recentPosts,
             String userInput,
             List<String> platforms) {
+        return generatePosts(projectName, projectContext, recentPosts, userInput, platforms,
+            List.of(), List.of());
+    }
+
+    /**
+     * Generate posts for given platforms. When "RD" is included, Claude selects the single best
+     * subreddit from the provided list (filtered to exclude cooling-down subreddits).
+     *
+     * @param eligibleSubreddits List of subreddit names eligible for posting (cooldown already filtered out)
+     * @param allSubreddits      Full list for display context (includes cooling-down ones)
+     */
+    public Map<String, DraftDto> generatePosts(
+            String projectName,
+            String projectContext,
+            List<Post> recentPosts,
+            String userInput,
+            List<String> platforms,
+            List<String> eligibleSubreddits,
+            List<String> allSubreddits) {
 
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("CLAUDE_API_KEY not set — returning placeholder drafts. Add to backend/.env to activate.");
             Map<String, DraftDto> placeholders = new HashMap<>();
             for (String pid : platforms) {
-                placeholders.put(pid, DraftDto.builder()
+                DraftDto dto = DraftDto.builder()
                     .platformId(pid).content("[Add CLAUDE_API_KEY to .env to enable AI generation]")
-                    .status("pending").build());
+                    .status("pending").build();
+                if ("RD".equals(pid) && !eligibleSubreddits.isEmpty()) {
+                    dto.setSelectedSubreddit(eligibleSubreddits.get(0));
+                    dto.setSubredditReasoning("Subreddit selection requires CLAUDE_API_KEY");
+                }
+                placeholders.put(pid, dto);
             }
             return placeholders;
         }
 
-        String systemPrompt = buildSystemPrompt(projectName, projectContext, recentPosts);
+        String systemPrompt = buildSystemPrompt(projectName, projectContext, recentPosts, eligibleSubreddits, allSubreddits);
         String userPrompt = "Generate posts for platforms: " + String.join(", ", platforms)
             + "\n\nKevin's prompt: " + userInput;
         String responseText = callClaude(systemPrompt, userPrompt, 4096);
@@ -76,7 +100,10 @@ public class ClaudeService {
         return callClaude(system, user, 512);
     }
 
-    private String buildSystemPrompt(String projectName, String projectContext, List<Post> recentPosts) {
+    private String buildSystemPrompt(String projectName, String projectContext,
+                                      List<Post> recentPosts,
+                                      List<String> eligibleSubreddits,
+                                      List<String> allSubreddits) {
         StringBuilder sb = new StringBuilder();
         sb.append("You are Kevin's personal social media content generator inside the Kontrol app.\n");
         sb.append("Kevin is a solo creator who uses one authentic voice across all platforms.\n\n");
@@ -112,6 +139,25 @@ RESPONSE FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
 }
 Only include the platforms requested. Do not include others.
 """);
+        if (!allSubreddits.isEmpty()) {
+            sb.append("\nREDDIT SUBREDDIT SELECTION:\n");
+            sb.append("You must select EXACTLY ONE subreddit for the RD post from the eligible list below.\n");
+            sb.append("Never post to multiple subreddits for the same content.\n\n");
+
+            if (!eligibleSubreddits.isEmpty()) {
+                sb.append("ELIGIBLE subreddits (pick one):\n");
+                for (String sub : eligibleSubreddits) {
+                    sb.append("  - r/").append(sub).append("\n");
+                }
+            } else {
+                sb.append("WARNING: All subreddits are currently in cooldown (posted within 48h).\n");
+                sb.append("Pick the least recently posted one from: ").append(String.join(", ", allSubreddits)).append("\n");
+            }
+
+            sb.append("\nFor the 'RD' platform in your JSON response, include these additional fields:\n");
+            sb.append("  \"selectedSubreddit\": \"subredditname\" (without r/ prefix),\n");
+            sb.append("  \"subredditReasoning\": \"One sentence explaining why this subreddit is the best fit\"\n");
+        }
         return sb.toString();
     }
 
@@ -150,12 +196,21 @@ Only include the platforms requested. Do not include others.
             for (String pid : platforms) {
                 JsonNode node = root.path(pid);
                 if (!node.isMissingNode()) {
-                    result.put(pid, DraftDto.builder()
+                    DraftDto draft = DraftDto.builder()
                         .platformId(pid)
                         .content(node.path("content").asText(""))
                         .title(node.path("title").isNull() ? null : node.path("title").asText())
                         .status("pending")
-                        .build());
+                        .build();
+                    if ("RD".equals(pid)) {
+                        String selectedSub = node.path("selectedSubreddit").isNull()
+                            ? null : node.path("selectedSubreddit").asText(null);
+                        String reasoning = node.path("subredditReasoning").isNull()
+                            ? null : node.path("subredditReasoning").asText(null);
+                        draft.setSelectedSubreddit(selectedSub);
+                        draft.setSubredditReasoning(reasoning);
+                    }
+                    result.put(pid, draft);
                 }
             }
         } catch (Exception e) {

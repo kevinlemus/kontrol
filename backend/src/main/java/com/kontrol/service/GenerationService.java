@@ -5,13 +5,16 @@ import com.kontrol.dto.GenerateRequest;
 import com.kontrol.dto.GenerateResponse;
 import com.kontrol.model.Post;
 import com.kontrol.model.PostPlatform;
+import com.kontrol.model.SubredditMonitor;
 import com.kontrol.repository.PostPlatformRepository;
 import com.kontrol.repository.PostRepository;
 import com.kontrol.repository.ProjectRepository;
+import com.kontrol.repository.SubredditMonitorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,6 +28,7 @@ public class GenerationService {
     private final PostRepository postRepository;
     private final PostPlatformRepository postPlatformRepository;
     private final ClaudeService claudeService;
+    private final SubredditMonitorRepository subredditMonitorRepository;
 
     public GenerateResponse generate(GenerateRequest request) {
         UUID projectId = UUID.fromString(request.getProjectId());
@@ -43,8 +47,22 @@ public class GenerationService {
             nvl(project.getCurrentStatus())
         );
 
+        // For Reddit: fetch monitored subreddits, filter by cooldown
+        List<String> eligibleSubreddits = List.of();
+        List<String> allSubreddits = List.of();
+        if (request.getPlatforms().contains("RD")) {
+            OffsetDateTime cooldownCutoff = OffsetDateTime.now().minusHours(48);
+            List<SubredditMonitor> eligible = subredditMonitorRepository
+                .findEligibleByProjectId(projectId, cooldownCutoff);
+            List<SubredditMonitor> all = subredditMonitorRepository
+                .findByProjectIdAndActiveTrue(projectId);
+            eligibleSubreddits = eligible.stream().map(SubredditMonitor::getSubreddit).toList();
+            allSubreddits = all.stream().map(SubredditMonitor::getSubreddit).toList();
+        }
+
         Map<String, DraftDto> drafts = claudeService.generatePosts(
-            project.getName(), context, recentPosts, request.getPrompt(), request.getPlatforms()
+            project.getName(), context, recentPosts, request.getPrompt(), request.getPlatforms(),
+            eligibleSubreddits, allSubreddits
         );
 
         Post post = Post.builder()
@@ -57,13 +75,25 @@ public class GenerationService {
         post = postRepository.save(post);
 
         for (Map.Entry<String, DraftDto> entry : drafts.entrySet()) {
-            postPlatformRepository.save(PostPlatform.builder()
+            PostPlatform.PostPlatformBuilder builder = PostPlatform.builder()
                 .postId(post.getId())
                 .platform(entry.getKey())
                 .content(entry.getValue().getContent())
                 .postType(entry.getValue().getPostType())
-                .status("pending")
-                .build());
+                .status("pending");
+
+            // Persist subreddit selection for Reddit posts
+            if ("RD".equals(entry.getKey()) && entry.getValue().getSelectedSubreddit() != null) {
+                String extraData = String.format(
+                    "{\"selectedSubreddit\":\"%s\",\"subredditReasoning\":\"%s\"}",
+                    entry.getValue().getSelectedSubreddit(),
+                    entry.getValue().getSubredditReasoning() != null
+                        ? entry.getValue().getSubredditReasoning().replace("\"", "'") : ""
+                );
+                builder.extraData(extraData);
+            }
+
+            postPlatformRepository.save(builder.build());
         }
 
         return GenerateResponse.builder()

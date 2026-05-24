@@ -23,6 +23,7 @@ export interface PlatformDraft {
   content: string
   title?: string
   subreddit?: string
+  subredditReasoning?: string  // Claude's one-sentence reasoning for the chosen subreddit
   hashtags?: string[]
   onScreenText?: string
   selectedPostType: PostType

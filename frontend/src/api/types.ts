@@ -14,6 +14,18 @@ export interface ApiDraft {
   title?: string | null
   postType?: string | null
   status?: string
+  selectedSubreddit?: string | null   // e.g. "bedroomproducers" (without r/)
+  subredditReasoning?: string | null  // e.g. "Best fit — discusses vocal recording"
+}
+
+export interface ApiSubredditMonitor {
+  id: string
+  subreddit: string
+  active: boolean
+  lastPostedAt?: string | null
+  engagementScore?: number
+  coolingDown: boolean
+  hoursUntilEligible: number
 }
 
 export interface GenerateRequest {

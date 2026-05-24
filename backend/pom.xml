@@ -35,10 +35,7 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-scheduling</artifactId>
-    </dependency>
+    <!-- Scheduling is included in spring-boot-starter — no separate artifact needed -->
 
     <!-- PostgreSQL (Supabase) -->
     <dependency>

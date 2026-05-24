@@ -446,6 +446,8 @@ export function ComposeScreen() {
   const activePlatform = PLATFORM_MAP[state.activePlatformId]
   const activeDraft = state.drafts[state.activePlatformId]
 
+  const activeProjectId = getStoredProjects().find(p => p.active)?.id ?? null
+
   const allApproved = selectedPlatforms.length > 0 &&
     selectedPlatforms.every(id => {
       const s = state.drafts[id]?.status
@@ -490,6 +492,8 @@ export function ComposeScreen() {
             ...newDrafts[platformId],
             content: draft.content,
             title: draft.title ?? newDrafts[platformId]?.title ?? '',
+            subreddit: draft.selectedSubreddit ?? newDrafts[platformId]?.subreddit,
+            subredditReasoning: draft.subredditReasoning ?? newDrafts[platformId]?.subredditReasoning,
             status: 'pending' as const,
           }
         }
@@ -508,7 +512,18 @@ export function ComposeScreen() {
     // Mock fallback
     setTimeout(() => {
       setGenerating(false)
-      setState(prev => ({ ...prev, generated: true }))
+      setState(prev => {
+        const newDrafts = { ...prev.drafts }
+        // Set mock subreddit for RD draft
+        if (newDrafts.RD) {
+          newDrafts.RD = {
+            ...newDrafts.RD,
+            subreddit: 'bedroomproducers',
+            subredditReasoning: 'Best fit — content matches this vocal production community',
+          }
+        }
+        return { ...prev, drafts: newDrafts, generated: true }
+      })
     }, 1800)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.prompt, state.drafts, selectedPlatforms])
@@ -600,6 +615,16 @@ export function ComposeScreen() {
 
   const handleDiscardBatch = useCallback(() => {
     setState(buildInitialState())
+  }, [])
+
+  const handleSubredditChange = useCallback((subreddit: string) => {
+    setState(prev => ({
+      ...prev,
+      drafts: {
+        ...prev.drafts,
+        RD: { ...prev.drafts.RD, subreddit },
+      },
+    }))
   }, [])
 
   const handleVoiceTranscript = useCallback((transcript: string) => {
@@ -728,6 +753,8 @@ export function ComposeScreen() {
               onDiscardBatch={handleDiscardBatch}
               desktop
               projectName={state.projectName}
+              projectId={activeProjectId ?? undefined}
+              onSubredditChange={handleSubredditChange}
             />
           </div>
         </div>
@@ -947,6 +974,8 @@ export function ComposeScreen() {
           onSkip={handleSkip}
           onDiscardBatch={handleDiscardBatch}
           projectName={state.projectName}
+          projectId={activeProjectId ?? undefined}
+          onSubredditChange={handleSubredditChange}
         />
       </div>
 

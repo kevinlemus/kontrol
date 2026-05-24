@@ -18,6 +18,8 @@ interface ActiveCardProps {
   onDiscardBatch: () => void
   desktop?: boolean
   projectName: string
+  projectId?: string
+  onSubredditChange?: (subreddit: string) => void
 }
 
 export function ActiveCard({
@@ -32,6 +34,8 @@ export function ActiveCard({
   onDiscardBatch,
   desktop,
   projectName,
+  projectId,
+  onSubredditChange,
 }: ActiveCardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
   const [flash, setFlash] = useState(false)
@@ -299,6 +303,8 @@ export function ActiveCard({
           onTitleChange={onTitleChange}
           onEditSaved={handleEditSaved}
           originalContent={originalContentRef.current}
+          projectId={projectId}
+          onSubredditChange={onSubredditChange}
         />
       ) : (
         <div style={{ flex: 1, overflowY: 'auto' }}>

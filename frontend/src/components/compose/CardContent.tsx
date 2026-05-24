@@ -1,5 +1,6 @@
 import React from 'react'
 import { PlatformDraft, Platform } from './types'
+import { SubredditSelector } from './SubredditSelector'
 
 interface CardContentProps {
   draft: PlatformDraft
@@ -8,9 +9,11 @@ interface CardContentProps {
   onTitleChange?: (title: string) => void
   onEditSaved: (original: string, edited: string) => void
   originalContent: string
+  projectId?: string
+  onSubredditChange?: (subreddit: string) => void
 }
 
-export function CardContent({ draft, platform, onContentChange, onTitleChange, onEditSaved, originalContent }: CardContentProps) {
+export function CardContent({ draft, platform, onContentChange, onTitleChange, onEditSaved, originalContent, projectId, onSubredditChange }: CardContentProps) {
   const hasTitle = ['RD', 'ST', 'IT', 'GJ'].includes(platform.id)
 
   return (
@@ -45,24 +48,14 @@ export function CardContent({ draft, platform, onContentChange, onTitleChange, o
         />
       )}
 
-      {/* Subreddit tag */}
-      {draft.subreddit && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-        }}>
-          <span style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            color: '#FF6534',
-            background: 'rgba(255,69,0,0.1)',
-            borderRadius: 'var(--radius-pill)',
-            padding: '2px 8px',
-          }}>
-            {draft.subreddit}
-          </span>
-        </div>
+      {/* Subreddit selector (Reddit only) */}
+      {platform.id === 'RD' && (
+        <SubredditSelector
+          selectedSubreddit={draft.subreddit}
+          reasoning={draft.subredditReasoning}
+          projectId={projectId ?? null}
+          onSelect={(sub) => onSubredditChange?.(sub)}
+        />
       )}
 
       {/* Post content textarea */}

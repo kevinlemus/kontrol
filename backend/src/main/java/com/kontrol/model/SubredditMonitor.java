@@ -32,6 +32,12 @@ public class SubredditMonitor {
     @Column(name = "last_checked_at")
     private OffsetDateTime lastCheckedAt;
 
+    @Column(name = "last_posted_at")
+    private OffsetDateTime lastPostedAt;
+
+    @Column(name = "engagement_score")
+    private Integer engagementScore = 0;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

@@ -15,4 +15,6 @@ public class DraftDto {
     private String title;
     private String postType;
     private String status;
+    private String selectedSubreddit;   // e.g. "bedroomproducers" (without r/)
+    private String subredditReasoning;  // e.g. "Best fit — discusses vocal recording"
 }

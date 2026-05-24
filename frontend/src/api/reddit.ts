@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { ApiRedditSuggestion } from './types'
+import type { ApiRedditSuggestion, ApiSubredditMonitor } from './types'
 
 export const redditApi = {
   getSuggestions: (projectId: string) =>
@@ -8,4 +8,6 @@ export const redditApi = {
     api.post<void>('/api/v1/reddit/post-comment', { suggestionId, commentText }),
   dismissSuggestion: (suggestionId: string) =>
     api.patch<void>(`/api/v1/reddit/suggestions/${suggestionId}/dismiss`),
+  getMonitors: (projectId: string) =>
+    api.get<ApiSubredditMonitor[]>(`/api/v1/reddit/monitors/${projectId}`),
 }

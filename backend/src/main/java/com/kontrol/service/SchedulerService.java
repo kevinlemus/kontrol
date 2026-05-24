@@ -1,5 +1,7 @@
 package com.kontrol.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kontrol.dto.PublishResult;
 import com.kontrol.model.Post;
 import com.kontrol.model.PostPlatform;
@@ -34,6 +36,7 @@ public class SchedulerService {
     private final SteamService steamService;
     private final ItchioService itchioService;
     private final GameJoltService gameJoltService;
+    private final ObjectMapper objectMapper;
 
     @Scheduled(fixedRate = 60_000)
     public void processScheduledPosts() {
@@ -87,7 +90,17 @@ public class SchedulerService {
             case "IG" -> instagramService.publishPost(pp.getContent(), post.getMediaUrl());
             case "TT" -> tiktokService.publishPost(pp.getContent(), post.getMediaUrl());
             case "LI" -> linkedInService.publishPost(pp.getContent());
-            case "RD" -> redditService.publishPost(pp.getContent());
+            case "RD" -> {
+                String subreddit = "self"; // fallback
+                if (pp.getExtraData() != null && !pp.getExtraData().isBlank()) {
+                    try {
+                        JsonNode extra = objectMapper.readTree(pp.getExtraData());
+                        String sub = extra.path("selectedSubreddit").asText(null);
+                        if (sub != null && !sub.isBlank()) subreddit = sub;
+                    } catch (Exception ignored) {}
+                }
+                yield redditService.publishPost(pp.getContent(), subreddit);
+            }
             case "X"  -> twitterService.publishPost(pp.getContent());
             case "FB" -> facebookService.publishPost(pp.getContent());
             case "YT" -> youTubeService.publishPost(pp.getContent(), pp.getPostType());

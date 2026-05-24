@@ -2,6 +2,7 @@ package com.kontrol.controller;
 
 import com.kontrol.dto.PostCommentRequest;
 import com.kontrol.dto.RedditSuggestionDto;
+import com.kontrol.dto.SubredditMonitorDto;
 import com.kontrol.model.RedditSuggestion;
 import com.kontrol.model.SubredditMonitor;
 import com.kontrol.repository.RedditSuggestionRepository;
@@ -10,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -52,8 +54,30 @@ public class RedditController {
     }
 
     @GetMapping("/monitors/{projectId}")
-    public ResponseEntity<List<SubredditMonitor>> getMonitors(@PathVariable UUID projectId) {
-        return ResponseEntity.ok(monitorRepo.findByProjectId(projectId));
+    public ResponseEntity<List<SubredditMonitorDto>> getMonitors(@PathVariable UUID projectId) {
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime cooldownCutoff = now.minusHours(48);
+
+        List<SubredditMonitorDto> dtos = monitorRepo.findByProjectId(projectId)
+            .stream().map(m -> {
+                boolean cooling = m.getLastPostedAt() != null && m.getLastPostedAt().isAfter(cooldownCutoff);
+                long hoursLeft = 0;
+                if (cooling) {
+                    hoursLeft = Duration.between(now, m.getLastPostedAt().plusHours(48)).toHours();
+                }
+                return SubredditMonitorDto.builder()
+                    .id(m.getId().toString())
+                    .subreddit(m.getSubreddit())
+                    .active(m.isActive())
+                    .lastCheckedAt(m.getLastCheckedAt())
+                    .lastPostedAt(m.getLastPostedAt())
+                    .engagementScore(m.getEngagementScore())
+                    .coolingDown(cooling)
+                    .hoursUntilEligible(Math.max(0, hoursLeft))
+                    .build();
+            }).toList();
+
+        return ResponseEntity.ok(dtos);
     }
 
     @PostMapping("/monitors")
