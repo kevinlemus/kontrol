@@ -160,7 +160,7 @@ public class ClaudeService {
         String name = (userContext != null && userContext.getName() != null) ? userContext.getName() : "the user";
         StringBuilder systemSb = new StringBuilder();
         systemSb.append("You are ").append(name).append("'s assistant for the Kontrol social media app.\n\n");
-        systemSb.append("PLATFORM CONTEXT: You are generating a comment for Reddit. ")
+        systemSb.append("PLATFORM CONTEXT: You are generating content for Reddit. ")
                 .append("Apply your knowledge of what content strategies, formats, tone, and ")
                 .append("posting patterns perform best on Reddit for this type of content and audience. ")
                 .append("Consider platform culture, algorithm preferences, and audience expectations.\n\n");
@@ -264,10 +264,7 @@ public class ClaudeService {
         // Tier 1 — Dynamic platform context (one block per requested platform)
         for (String platform : platforms) {
             String platformName = PLATFORM_DISPLAY_NAMES.getOrDefault(platform, platform);
-            String postTypeLabel = "post";
-            sb.append("PLATFORM CONTEXT: You are generating a ")
-              .append(postTypeLabel)
-              .append(" for ")
+            sb.append("PLATFORM CONTEXT: You are generating content for ")
               .append(platformName)
               .append(". Apply your knowledge of what content strategies, formats, tone, and ")
               .append("posting patterns perform best on ")
