@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kontrol.dto.DraftDto;
 import com.kontrol.dto.PerformanceInsightDto;
+import com.kontrol.dto.ProjectContextDto;
 import com.kontrol.dto.UserContextDto;
 import com.kontrol.model.Post;
 import com.kontrol.model.PostPlatform;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +65,47 @@ public class ClaudeService {
             List<String> platforms) {
         return generatePosts(projectName, userContext, projectContext, recentPosts, userInput, platforms,
             List.of(), List.of(), List.of(), Map.of(), Map.of());
+    }
+
+    /**
+     * Full overload accepting {@link ProjectContextDto} — carries competitive intelligence
+     * (industry + competitors) in addition to the standard project fields.
+     */
+    public Map<String, DraftDto> generatePosts(
+            ProjectContextDto projectContext,
+            UserContextDto userContext,
+            List<Post> recentPosts,
+            String userInput,
+            List<String> platforms,
+            List<String> eligibleSubreddits,
+            List<String> allSubreddits,
+            List<PerformanceInsightDto> insights,
+            Map<String, Double> subredditScores,
+            Map<String, List<PostPlatform>> editHistoryByPlatform) {
+
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("CLAUDE_API_KEY not set — returning placeholder drafts. Add to backend/.env to activate.");
+            Map<String, DraftDto> placeholders = new HashMap<>();
+            for (String pid : platforms) {
+                DraftDto dto = DraftDto.builder()
+                    .platformId(pid).content("[Add CLAUDE_API_KEY to .env to enable AI generation]")
+                    .status("pending").build();
+                if ("RD".equals(pid) && !eligibleSubreddits.isEmpty()) {
+                    dto.setSelectedSubreddit(eligibleSubreddits.get(0));
+                    dto.setSubredditReasoning("Subreddit selection requires CLAUDE_API_KEY");
+                }
+                placeholders.put(pid, dto);
+            }
+            return placeholders;
+        }
+
+        String name = (userContext != null && userContext.getName() != null) ? userContext.getName() : "the user";
+        String systemPrompt = buildSystemPrompt(projectContext, userContext, recentPosts,
+            eligibleSubreddits, allSubreddits, insights, subredditScores, platforms, editHistoryByPlatform);
+        String userPrompt = "Generate posts for platforms: " + String.join(", ", platforms)
+            + "\n\n" + name + "'s prompt: " + userInput;
+        String responseText = callClaude(systemPrompt, userPrompt, 4096);
+        return parseDrafts(responseText, platforms);
     }
 
     /**
@@ -131,6 +174,65 @@ public class ClaudeService {
             + "\nPost body: " + redditPostBody + "\n\nGenerate a comment:";
         return callClaude(systemSb.toString(), user, 512);
     }
+
+    /** buildSystemPrompt variant for the ProjectContextDto-based overload — includes Tier 4. */
+    private String buildSystemPrompt(ProjectContextDto project,
+                                      UserContextDto userContext,
+                                      List<Post> recentPosts,
+                                      List<String> eligibleSubreddits,
+                                      List<String> allSubreddits,
+                                      List<PerformanceInsightDto> insights,
+                                      Map<String, Double> subredditScores,
+                                      List<String> platforms,
+                                      Map<String, List<PostPlatform>> editHistoryByPlatform) {
+        String flatContext = String.format(
+            "Name: %s\nWhat it is: %s\nWho it's for: %s\nVibe: %s\nCurrent status: %s",
+            nvl(project.getName()), nvl(project.getWhatItIs()),
+            nvl(project.getWhoItsFor()), nvl(project.getVibe()),
+            nvl(project.getCurrentStatus()));
+
+        // Build the base prompt using the existing string-based builder
+        String base = buildSystemPrompt(project.getName(), userContext, flatContext, recentPosts,
+            eligibleSubreddits, allSubreddits, insights, subredditScores, platforms, editHistoryByPlatform);
+
+        // Tier 4 — Competitive & industry context
+        String industry = project.getIndustry();
+        String comp1 = project.getCompetitor1();
+        String comp2 = project.getCompetitor2();
+        String comp3 = project.getCompetitor3();
+
+        boolean hasIndustry = industry != null && !industry.isBlank();
+        List<String> competitors = new ArrayList<>();
+        if (comp1 != null && !comp1.isBlank()) competitors.add(comp1);
+        if (comp2 != null && !comp2.isBlank()) competitors.add(comp2);
+        if (comp3 != null && !comp3.isBlank()) competitors.add(comp3);
+        boolean hasCompetitors = !competitors.isEmpty();
+
+        if (!hasIndustry && !hasCompetitors) {
+            return base;
+        }
+
+        StringBuilder sb = new StringBuilder(base);
+        if (hasIndustry) {
+            sb.append("INDUSTRY CONTEXT: This project is in the ")
+              .append(industry)
+              .append(" industry. Apply your knowledge of what content strategies ")
+              .append("and posting patterns perform best in this industry. Consider ")
+              .append("the typical audience, purchase drivers, trust signals, and ")
+              .append("content formats that work for this space.\n\n");
+        }
+        if (hasCompetitors) {
+            sb.append("COMPETITIVE CONTEXT: This project competes with: ")
+              .append(String.join(", ", competitors))
+              .append(". When generating posts: differentiate from these competitors, ")
+              .append("highlight what makes this product or service unique, position ")
+              .append("this brand as the better alternative without directly attacking ")
+              .append("competitors.\n\n");
+        }
+        return sb.toString();
+    }
+
+    private String nvl(String s) { return s != null ? s : "N/A"; }
 
     private String buildSystemPrompt(String projectName, UserContextDto userContext, String projectContext,
                                       List<Post> recentPosts,
@@ -266,21 +368,34 @@ Only include the platforms requested. Do not include others.
 
     /**
      * Analyze scraped website text and return structured brand info.
-     * Returns map with keys: name, whatItIs, whoItsFor, vibe, suggestedTagline.
+     * Returns map with keys: name, what_it_is, who_its_for, vibe, suggested_tagline,
+     * industry (String), competitors (List&lt;String&gt;, up to 3, may be empty).
      */
-    public Map<String, String> analyzeWebsite(String textContent, boolean isSocialProfile) {
+    public Map<String, Object> analyzeWebsite(String textContent, boolean isSocialProfile) {
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("CLAUDE_API_KEY not set — cannot analyze website");
             throw new RuntimeException("CLAUDE_API_KEY not configured");
         }
         String extractionPrompt = isSocialProfile
-            ? "This is content from a social media profile. Extract: 1) The person/brand name 2) What they do in one sentence 3) Who their audience is in one sentence 4) Their tone/vibe in one sentence. Return ONLY valid JSON: {\"name\":\"\",\"whatItIs\":\"\",\"whoItsFor\":\"\",\"vibe\":\"\",\"suggestedTagline\":\"\"}"
-            : "Analyze this website content and extract: 1) The product/business name 2) What it is in one sentence 3) Who it's for in one sentence 4) The brand tone/vibe in one sentence 5) A key tagline if present. Return ONLY valid JSON: {\"name\":\"\",\"whatItIs\":\"\",\"whoItsFor\":\"\",\"vibe\":\"\",\"suggestedTagline\":\"\"}";
+            ? "This is content from a social media profile. Extract: 1) The person/brand name 2) What they do in one sentence 3) Who their audience is in one sentence 4) Their tone/vibe in one sentence. Return ONLY valid JSON: {\"name\":\"\",\"what_it_is\":\"\",\"who_its_for\":\"\",\"vibe\":\"\",\"suggested_tagline\":\"\",\"industry\":\"\",\"competitors\":[]}"
+            : """
+              Analyze this website content and extract:
+              1) The product/business name
+              2) What it is in one sentence
+              3) Who it's for in one sentence
+              4) The brand tone/vibe in one sentence
+              5) What industry is this business in? One short phrase, be specific (e.g. "indie game development", "AI music tools", "B2B SaaS")
+              6) Are any competitors mentioned or clearly implied? List up to 3 by name only.
+
+              Return ONLY valid JSON with these exact keys:
+              {"name":"","what_it_is":"","who_its_for":"","vibe":"","suggested_tagline":"","industry":"","competitors":["","",""]}
+
+              competitors should be an empty array [] if none found. Do not invent competitors that are not mentioned or strongly implied.""";
 
         String systemPrompt = "You are a brand analyst. Extract structured info from website content. Return ONLY valid JSON with no markdown fences.";
         String userMessage = textContent + "\n\n" + extractionPrompt;
 
-        String responseText = callClaude(systemPrompt, userMessage, 512);
+        String responseText = callClaude(systemPrompt, userMessage, 768);
 
         try {
             String cleaned = responseText.trim();
@@ -288,12 +403,24 @@ Only include the platforms requested. Do not include others.
                 cleaned = cleaned.replaceAll("^```[a-z]*\\n?", "").replaceAll("\\n?```$", "").trim();
             }
             JsonNode root = objectMapper.readTree(cleaned);
-            Map<String, String> result = new java.util.HashMap<>();
+            Map<String, Object> result = new java.util.HashMap<>();
             result.put("name", root.path("name").asText(""));
-            result.put("what_it_is", root.path("whatItIs").asText(""));
-            result.put("who_its_for", root.path("whoItsFor").asText(""));
+            result.put("what_it_is", root.path("what_it_is").asText(""));
+            result.put("who_its_for", root.path("who_its_for").asText(""));
             result.put("vibe", root.path("vibe").asText(""));
-            result.put("suggested_tagline", root.path("suggestedTagline").asText(""));
+            result.put("suggested_tagline", root.path("suggested_tagline").asText(""));
+            result.put("industry", root.path("industry").asText(""));
+
+            List<String> competitors = new ArrayList<>();
+            JsonNode competitorsNode = root.path("competitors");
+            if (competitorsNode.isArray()) {
+                for (JsonNode c : competitorsNode) {
+                    String val = c.asText("").trim();
+                    if (!val.isBlank()) competitors.add(val);
+                }
+            }
+            result.put("competitors", competitors);
+
             return result;
         } catch (Exception e) {
             log.error("Failed to parse analyzeWebsite Claude response. Raw: {}", responseText, e);

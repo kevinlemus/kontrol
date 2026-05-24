@@ -29,6 +29,14 @@ interface StoredProject {
   name: string
   active: boolean
   platforms: Record<string, { enabled: boolean }>
+  whatItIs?: string
+  whoItsFor?: string
+  vibe?: string
+  currentStatus?: string
+  industry?: string
+  competitor1?: string
+  competitor2?: string
+  competitor3?: string
 }
 
 function getStoredProjects(): StoredProject[] {
@@ -245,9 +253,43 @@ function ProjectSwitcher({ currentName, onSwitch }: ProjectSwitcherProps) {
 interface ComposeTopBarProps {
   projectName: string
   onProjectSwitch: (name: string) => void
+  activeProject?: StoredProject
 }
 
-function ComposeTopBar({ projectName, onProjectSwitch }: ComposeTopBarProps) {
+function ComposeTopBar({ projectName, onProjectSwitch, activeProject }: ComposeTopBarProps) {
+  const [showProjectInfo, setShowProjectInfo] = useState(false)
+  const infoRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showProjectInfo) return
+    const handler = (e: MouseEvent) => {
+      if (infoRef.current && !infoRef.current.contains(e.target as Node)) {
+        setShowProjectInfo(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showProjectInfo])
+
+  const proj = activeProject
+
+  const infoRows: { label: string; value: string | undefined }[] = [
+    { label: 'What it is', value: proj?.whatItIs },
+    { label: "Who it's for", value: proj?.whoItsFor },
+    { label: 'Vibe', value: proj?.vibe },
+    ...(proj?.industry ? [{ label: 'Industry', value: proj.industry }] : []),
+    { label: 'Status', value: proj?.currentStatus },
+  ]
+
+  const competitorList = [proj?.competitor1, proj?.competitor2, proj?.competitor3]
+    .filter((c): c is string => Boolean(c))
+  if (competitorList.length > 0) {
+    infoRows.splice(infoRows.length - 1, 0, {
+      label: 'Competitors',
+      value: competitorList.join(', '),
+    })
+  }
+
   return (
     <div style={{
       height: 48,
@@ -257,6 +299,7 @@ function ComposeTopBar({ projectName, onProjectSwitch }: ComposeTopBarProps) {
       padding: '0 16px',
       flexShrink: 0,
       borderBottom: '1px solid rgba(255,255,255,0.05)',
+      position: 'relative',
     }}>
       {/* Wordmark */}
       <span style={{
@@ -272,8 +315,86 @@ function ComposeTopBar({ projectName, onProjectSwitch }: ComposeTopBarProps) {
         kontrol
       </span>
 
-      {/* Project switcher pill */}
-      <ProjectSwitcher currentName={projectName} onSwitch={onProjectSwitch} />
+      {/* Project switcher pill + info button */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <ProjectSwitcher currentName={projectName} onSwitch={onProjectSwitch} />
+
+        {/* Info button + popover */}
+        <div ref={infoRef} style={{ position: 'relative', display: 'inline-block' }}>
+          <button
+            onClick={() => setShowProjectInfo(v => !v)}
+            aria-label="Project info"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: showProjectInfo ? '#3B82F6' : '#555',
+              fontSize: 16,
+              padding: '0 6px',
+              lineHeight: 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              transition: 'color .15s',
+            }}
+          >
+            &#9432;
+          </button>
+
+          {showProjectInfo && (
+            <div style={{
+              position: 'absolute',
+              top: 'calc(100% + 8px)',
+              right: 0,
+              background: '#181818',
+              border: '1px solid #333',
+              borderRadius: 12,
+              padding: 16,
+              minWidth: 280,
+              maxWidth: 400,
+              zIndex: 100,
+              boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+            }}>
+              {/* Project name */}
+              <div style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 700,
+                fontSize: 15,
+                color: '#fff',
+                marginBottom: 12,
+              }}>
+                {projectName}
+              </div>
+
+              {/* Info rows */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {infoRows.map(row => (
+                  <div key={row.label} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <span style={{
+                      fontSize: 12,
+                      color: '#666',
+                      fontFamily: 'var(--font-body)',
+                      width: 110,
+                      flexShrink: 0,
+                      paddingTop: 1,
+                    }}>
+                      {row.label}
+                    </span>
+                    <span style={{
+                      fontSize: 14,
+                      color: row.value ? '#fff' : '#444',
+                      fontFamily: 'var(--font-body)',
+                      flex: 1,
+                      lineHeight: 1.4,
+                    }}>
+                      {row.value || '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -463,7 +584,9 @@ export function ComposeScreen() {
   const activePlatform = PLATFORM_MAP[state.activePlatformId]
   const activeDraft = state.drafts[state.activePlatformId]
 
-  const activeProjectId = getStoredProjects().find(p => p.active)?.id ?? null
+  const storedProjects = getStoredProjects()
+  const activeStoredProject = storedProjects.find(p => p.active) ?? null
+  const activeProjectId = activeStoredProject?.id ?? null
 
   const allApproved = selectedPlatforms.length > 0 &&
     selectedPlatforms.every(id => {
@@ -709,7 +832,7 @@ export function ComposeScreen() {
           padding: '16px 20px 20px',
           gap: 10,
         }}>
-          <ComposeTopBar projectName={state.projectName} onProjectSwitch={handleProjectSwitch} />
+          <ComposeTopBar projectName={state.projectName} onProjectSwitch={handleProjectSwitch} activeProject={activeStoredProject ?? undefined} />
 
           {/* Voice learning tip banner — desktop */}
           {showTip && (
@@ -883,7 +1006,7 @@ export function ComposeScreen() {
       background: 'var(--bg-base)',
       overflow: 'hidden',
     }}>
-      <ComposeTopBar projectName={state.projectName} onProjectSwitch={handleProjectSwitch} />
+      <ComposeTopBar projectName={state.projectName} onProjectSwitch={handleProjectSwitch} activeProject={activeStoredProject ?? undefined} />
 
       {/* Scrollable content above card */}
       <div style={{

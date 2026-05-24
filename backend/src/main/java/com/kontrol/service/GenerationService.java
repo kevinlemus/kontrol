@@ -4,6 +4,7 @@ import com.kontrol.dto.DraftDto;
 import com.kontrol.dto.GenerateRequest;
 import com.kontrol.dto.GenerateResponse;
 import com.kontrol.dto.PerformanceInsightDto;
+import com.kontrol.dto.ProjectContextDto;
 import com.kontrol.dto.UserContextDto;
 import com.kontrol.model.Post;
 import com.kontrol.model.PostPlatform;
@@ -45,14 +46,17 @@ public class GenerationService {
 
         List<Post> recentPosts = postRepository.findTop10ByProjectIdOrderByCreatedAtDesc(projectId);
 
-        String context = String.format(
-            "Name: %s\nWhat it is: %s\nWho it's for: %s\nVibe: %s\nCurrent status: %s",
-            project.getName(),
-            nvl(project.getWhatItIs()),
-            nvl(project.getWhoItsFor()),
-            nvl(project.getVibe()),
-            nvl(project.getCurrentStatus())
-        );
+        ProjectContextDto projectContext = ProjectContextDto.builder()
+            .name(project.getName())
+            .whatItIs(project.getWhatItIs())
+            .whoItsFor(project.getWhoItsFor())
+            .vibe(project.getVibe())
+            .currentStatus(project.getCurrentStatus())
+            .industry(project.getIndustry())
+            .competitor1(project.getCompetitor1())
+            .competitor2(project.getCompetitor2())
+            .competitor3(project.getCompetitor3())
+            .build();
 
         // Fetch performance insights per platform
         List<PerformanceInsightDto> insights = request.getPlatforms().stream()
@@ -89,7 +93,7 @@ public class GenerationService {
         }
 
         Map<String, DraftDto> drafts = claudeService.generatePosts(
-            project.getName(), userContext, context, recentPosts, request.getPrompt(), request.getPlatforms(),
+            projectContext, userContext, recentPosts, request.getPrompt(), request.getPlatforms(),
             eligibleSubreddits, allSubreddits, insights, subredditScores, editHistoryByPlatform
         );
 
@@ -133,5 +137,4 @@ public class GenerationService {
             .build();
     }
 
-    private String nvl(String s) { return s != null ? s : "N/A"; }
 }

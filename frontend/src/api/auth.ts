@@ -76,6 +76,8 @@ export const authApi = {
     who_its_for?: string
     vibe?: string
     suggested_tagline?: string
+    industry?: string
+    competitors?: string | string[]
   }> =>
     fetch(`${BASE}/api/v1/projects/analyze-url`, {
       method: 'POST',

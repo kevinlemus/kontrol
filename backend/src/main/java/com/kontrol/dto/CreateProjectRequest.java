@@ -11,4 +11,8 @@ public class CreateProjectRequest {
     private String whoItsFor;
     private String vibe;
     private String currentStatus;
+    private String competitor1;
+    private String competitor2;
+    private String competitor3;
+    private String industry;
 }

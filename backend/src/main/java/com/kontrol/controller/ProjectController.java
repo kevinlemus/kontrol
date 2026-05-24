@@ -40,7 +40,9 @@ public class ProjectController {
         Project p = Project.builder()
             .name(req.getName()).whatItIs(req.getWhatItIs())
             .whoItsFor(req.getWhoItsFor()).vibe(req.getVibe())
-            .currentStatus(req.getCurrentStatus()).active(false).build();
+            .currentStatus(req.getCurrentStatus()).active(false)
+            .competitor1(req.getCompetitor1()).competitor2(req.getCompetitor2())
+            .competitor3(req.getCompetitor3()).industry(req.getIndustry()).build();
         return ResponseEntity.status(201).body(toDto(projectRepository.save(p)));
     }
 
@@ -51,6 +53,8 @@ public class ProjectController {
             p.setName(req.getName()); p.setWhatItIs(req.getWhatItIs());
             p.setWhoItsFor(req.getWhoItsFor()); p.setVibe(req.getVibe());
             p.setCurrentStatus(req.getCurrentStatus());
+            p.setCompetitor1(req.getCompetitor1()); p.setCompetitor2(req.getCompetitor2());
+            p.setCompetitor3(req.getCompetitor3()); p.setIndustry(req.getIndustry());
             return ResponseEntity.ok(toDto(projectRepository.save(p)));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -75,6 +79,8 @@ public class ProjectController {
             .id(p.getId().toString()).name(p.getName())
             .whatItIs(p.getWhatItIs()).whoItsFor(p.getWhoItsFor())
             .vibe(p.getVibe()).currentStatus(p.getCurrentStatus())
-            .active(p.isActive()).build();
+            .active(p.isActive())
+            .competitor1(p.getCompetitor1()).competitor2(p.getCompetitor2())
+            .competitor3(p.getCompetitor3()).industry(p.getIndustry()).build();
     }
 }

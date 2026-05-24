@@ -39,6 +39,18 @@ public class Project {
     @Column(name = "active")
     private boolean active;
 
+    @Column(name = "competitor_1")
+    private String competitor1;
+
+    @Column(name = "competitor_2")
+    private String competitor2;
+
+    @Column(name = "competitor_3")
+    private String competitor3;
+
+    @Column(name = "industry")
+    private String industry;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

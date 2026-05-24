@@ -36,6 +36,10 @@ interface Project {
   active: boolean
   platforms: Record<PlatformKey, PlatformConfig>
   personas?: Persona[]
+  industry?: string
+  competitor1?: string
+  competitor2?: string
+  competitor3?: string
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -367,6 +371,42 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
       <InputField label="Who it's for" value={form.whoItsFor} onChange={v => setField('whoItsFor', v)} multiline />
       <InputField label="Vibe" value={form.vibe} onChange={v => setField('vibe', v)} multiline />
       <InputField label="Current status" value={form.currentStatus} onChange={v => setField('currentStatus', v)} />
+      <InputField label="Industry" value={form.industry ?? ''} onChange={v => setField('industry', v)} />
+
+      {/* Competitors section */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Competitors (optional)
+          </label>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+            Add up to 3 competitors by name or URL
+          </span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {(['competitor1', 'competitor2', 'competitor3'] as const).map((key, i) => (
+            <input
+              key={key}
+              type="text"
+              value={form[key] ?? ''}
+              onChange={e => setField(key, e.target.value)}
+              placeholder={`Competitor ${i + 1} name or URL`}
+              style={{
+                width: '100%',
+                background: 'var(--bg-raised)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 10,
+                padding: '10px 12px',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-body)',
+                fontSize: 14,
+                outline: 'none',
+                boxSizing: 'border-box' as const,
+              }}
+            />
+          ))}
+        </div>
+      </div>
 
       {/* Platform toggles */}
       <div>
@@ -689,6 +729,10 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
   const [whoItsFor, setWhoItsFor] = useState('')
   const [vibe, setVibe] = useState('')
   const [currentStatus, setCurrentStatus] = useState('')
+  const [industry, setIndustry] = useState('')
+  const [competitor1, setCompetitor1] = useState('')
+  const [competitor2, setCompetitor2] = useState('')
+  const [competitor3, setCompetitor3] = useState('')
 
   // URL analysis state
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -706,6 +750,15 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
       if (res.what_it_is) { setWhatItIs(res.what_it_is); suggested.add('whatItIs') }
       if (res.who_its_for) { setWhoItsFor(res.who_its_for); suggested.add('whoItsFor') }
       if (res.vibe) { setVibe(res.vibe); suggested.add('vibe') }
+      if (res.industry) { setIndustry(res.industry); suggested.add('industry') }
+      if (res.competitors) {
+        const parts: string[] = Array.isArray(res.competitors)
+          ? res.competitors
+          : res.competitors.split(',').map((s: string) => s.trim()).filter(Boolean)
+        if (parts[0]) { setCompetitor1(parts[0]); suggested.add('competitor1') }
+        if (parts[1]) { setCompetitor2(parts[1]); suggested.add('competitor2') }
+        if (parts[2]) { setCompetitor3(parts[2]); suggested.add('competitor3') }
+      }
 
       setAiSuggested(suggested)
     } catch {
@@ -736,6 +789,10 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
       active: false,
       personas: DEFAULT_PERSONAS,
       platforms: { ...DEFAULT_PLATFORMS },
+      industry: industry.trim() || undefined,
+      competitor1: competitor1.trim() || undefined,
+      competitor2: competitor2.trim() || undefined,
+      competitor3: competitor3.trim() || undefined,
     }
     onCreate(newProject)
   }
@@ -900,6 +957,63 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
             onChange={e => setCurrentStatus(e.target.value)}
             style={inputBase}
           />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Industry
+          </label>
+          <input
+            type="text"
+            value={industry}
+            onChange={e => { setIndustry(e.target.value); clearSuggested('industry') }}
+            placeholder="e.g. Indie game development, AI music tools, B2B SaaS"
+            style={inputBase}
+          />
+          <AiLabel field="industry" />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Competitors (optional)
+            </label>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+              Add up to 3 competitors by name or URL
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <input
+                type="text"
+                value={competitor1}
+                onChange={e => { setCompetitor1(e.target.value); clearSuggested('competitor1') }}
+                placeholder="Competitor 1 name or URL"
+                style={inputBase}
+              />
+              <AiLabel field="competitor1" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <input
+                type="text"
+                value={competitor2}
+                onChange={e => { setCompetitor2(e.target.value); clearSuggested('competitor2') }}
+                placeholder="Competitor 2 name or URL"
+                style={inputBase}
+              />
+              <AiLabel field="competitor2" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <input
+                type="text"
+                value={competitor3}
+                onChange={e => { setCompetitor3(e.target.value); clearSuggested('competitor3') }}
+                placeholder="Competitor 3 name or URL"
+                style={inputBase}
+              />
+              <AiLabel field="competitor3" />
+            </div>
+          </div>
         </div>
 
         <button

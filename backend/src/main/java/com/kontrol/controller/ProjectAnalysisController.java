@@ -61,7 +61,7 @@ public class ProjectAnalysisController {
                 || url.contains("twitter.com")
                 || url.contains("x.com");
 
-            Map<String, String> result = claudeService.analyzeWebsite(text, isSocial);
+            Map<String, Object> result = claudeService.analyzeWebsite(text, isSocial);
             return ResponseEntity.ok(result);
 
         } catch (Exception e) {
