@@ -7,11 +7,12 @@ import { authApi } from '../api/auth'
 
 type StyleOption = 'Casual' | 'Professional' | 'Hype' | 'Dry'
 type AvoidOption = 'Corporate' | 'Salesy' | 'Try-hard slang' | 'Motivational quotes'
+type SelectedPath = 'questions' | 'import' | 'skip' | null
 
 const STYLE_OPTIONS: StyleOption[] = ['Casual', 'Professional', 'Hype', 'Dry']
 const AVOID_OPTIONS: AvoidOption[] = ['Corporate', 'Salesy', 'Try-hard slang', 'Motivational quotes']
 
-const TOTAL_SCREENS = 5
+const TOTAL_SCREENS = 6
 
 // ─── Progress Dots ────────────────────────────────────────────────────────────
 
@@ -73,7 +74,176 @@ function PillOption({
   )
 }
 
-// ─── Screen components ────────────────────────────────────────────────────────
+// ─── Shared Continue button ───────────────────────────────────────────────────
+
+function ContinueButton({ onClick, disabled = false }: { onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        width: '100%',
+        padding: '14px 0',
+        background: disabled ? 'rgba(59,130,246,0.4)' : '#3B82F6',
+        border: 'none',
+        borderRadius: 12,
+        color: '#fff',
+        fontFamily: 'var(--font-body)',
+        fontSize: 16,
+        fontWeight: 700,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.4 : 1,
+        transition: 'background .15s, opacity .15s',
+      }}
+    >
+      Continue
+    </button>
+  )
+}
+
+// ─── Screen 0 — Path Selection ────────────────────────────────────────────────
+
+interface PathCardProps {
+  icon: string
+  title: string
+  subtitle: string
+  selected: boolean
+  onSelect: () => void
+  recommended?: boolean
+}
+
+function PathCard({ icon, title, subtitle, selected, onSelect, recommended = false }: PathCardProps) {
+  return (
+    <div
+      onClick={onSelect}
+      style={{
+        position: 'relative',
+        background: selected ? 'rgba(59,130,246,0.08)' : '#181818',
+        border: selected ? '1.5px solid #3B82F6' : '1.5px solid #2a2a2a',
+        borderRadius: 14,
+        padding: '18px 20px',
+        cursor: 'pointer',
+        transition: 'border-color 0.15s ease, background 0.15s ease',
+      }}
+    >
+      {recommended && (
+        <span style={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
+          background: '#3B82F6',
+          color: '#fff',
+          fontSize: 10,
+          fontWeight: 700,
+          fontFamily: 'var(--font-body)',
+          padding: '3px 8px',
+          borderRadius: 999,
+          letterSpacing: 0.2,
+        }}>
+          Recommended
+        </span>
+      )}
+      <div style={{
+        fontSize: 28,
+        marginBottom: 10,
+        lineHeight: 1,
+      }}>
+        {icon}
+      </div>
+      <div style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 17,
+        fontWeight: 700,
+        color: '#fff',
+        marginBottom: 6,
+      }}>
+        {title}
+      </div>
+      <div style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 13,
+        color: '#888',
+        lineHeight: 1.5,
+      }}>
+        {subtitle}
+      </div>
+    </div>
+  )
+}
+
+function Screen0({
+  selectedPath,
+  setSelectedPath,
+  onContinue,
+}: {
+  selectedPath: SelectedPath
+  setSelectedPath: (p: SelectedPath) => void
+  onContinue: () => void
+}) {
+  return (
+    <>
+      <h1 style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 26,
+        fontWeight: 800,
+        color: '#fff',
+        marginBottom: 8,
+        letterSpacing: -0.4,
+        textAlign: 'center',
+        lineHeight: 1.25,
+      }}>
+        How do you want to set up your voice?
+      </h1>
+      <p style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.45)',
+        marginBottom: 28,
+        textAlign: 'center',
+      }}>
+        You can always change this later in Settings.
+      </p>
+
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        marginBottom: 28,
+      }}>
+        <PathCard
+          icon="✏️"
+          title="Set up your voice now"
+          subtitle="Answer 4 quick questions and Kontrol learns how you talk from day one. Takes 2 minutes."
+          selected={selectedPath === 'questions'}
+          onSelect={() => setSelectedPath('questions')}
+          recommended
+        />
+        <PathCard
+          icon="📱"
+          title="Learn from my existing posts"
+          subtitle="Connect Instagram, TikTok, or Reddit and Kontrol analyzes your real posts to match your style automatically."
+          selected={selectedPath === 'import'}
+          onSelect={() => setSelectedPath('import')}
+        />
+        <PathCard
+          icon="🚀"
+          title="Skip for now — learn as I go"
+          subtitle="Kontrol starts simple and gets smarter every time you edit a generated post. No setup needed."
+          selected={selectedPath === 'skip'}
+          onSelect={() => setSelectedPath('skip')}
+        />
+      </div>
+
+      <ContinueButton
+        disabled={selectedPath === null}
+        onClick={onContinue}
+      />
+    </>
+  )
+}
+
+// ─── Screen 1 — Name ──────────────────────────────────────────────────────────
 
 function Screen1({ name, setName, onNext }: {
   name: string
@@ -131,6 +301,8 @@ function Screen1({ name, setName, onNext }: {
   )
 }
 
+// ─── Screen 2 — Style Pills ───────────────────────────────────────────────────
+
 function Screen2({ styles, toggleStyle, onNext }: {
   styles: Set<StyleOption>
   toggleStyle: (s: StyleOption) => void
@@ -178,6 +350,8 @@ function Screen2({ styles, toggleStyle, onNext }: {
     </>
   )
 }
+
+// ─── Screen 3 — Voice Sample ──────────────────────────────────────────────────
 
 function Screen3({ voiceSample, setVoiceSample, onNext }: {
   voiceSample: string
@@ -237,6 +411,8 @@ function Screen3({ voiceSample, setVoiceSample, onNext }: {
   )
 }
 
+// ─── Screen 4 — Avoid Pills ───────────────────────────────────────────────────
+
 function Screen4({ avoids, toggleAvoid, onNext }: {
   avoids: Set<AvoidOption>
   toggleAvoid: (s: AvoidOption) => void
@@ -284,6 +460,8 @@ function Screen4({ avoids, toggleAvoid, onNext }: {
     </>
   )
 }
+
+// ─── Screen 5 — Platform Connect ─────────────────────────────────────────────
 
 const PLATFORM_BUTTONS = [
   { id: 'IG', name: 'Instagram', gradient: 'linear-gradient(135deg, #F58529, #DD2A7B, #8134AF)' },
@@ -432,40 +610,15 @@ function Screen5({ onFinish, finishing }: {
   )
 }
 
-// ─── Shared Continue button ───────────────────────────────────────────────────
-
-function ContinueButton({ onClick, disabled = false }: { onClick: () => void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        width: '100%',
-        padding: '14px 0',
-        background: disabled ? 'rgba(59,130,246,0.4)' : '#3B82F6',
-        border: 'none',
-        borderRadius: 12,
-        color: '#fff',
-        fontFamily: 'var(--font-body)',
-        fontSize: 16,
-        fontWeight: 700,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'background .15s',
-      }}
-    >
-      Continue
-    </button>
-  )
-}
-
 // ─── Main OnboardingPage ──────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
   const { user, updateUser } = useAuth()
   const navigate = useNavigate()
 
+  // screen 0 = path selection, 1–5 = existing questionnaire screens
   const [screen, setScreen] = useState(0)
+  const [selectedPath, setSelectedPath] = useState<SelectedPath>(null)
   const [name, setName] = useState(user?.name ?? '')
   const [styles, setStyles] = useState<Set<StyleOption>>(new Set())
   const [voiceSample, setVoiceSample] = useState('')
@@ -507,6 +660,28 @@ export default function OnboardingPage() {
     navigate('/', { replace: true })
   }
 
+  const handleSkipNow = async () => {
+    setFinishing(true)
+    try {
+      await authApi.updateSettings({ onboardingCompleted: true })
+    } catch {
+      // Best-effort
+    }
+    updateUser({ onboardingCompleted: true })
+    navigate('/', { replace: true })
+  }
+
+  // Handles the Continue button on Screen 0
+  const handlePathContinue = () => {
+    if (selectedPath === 'questions') {
+      setScreen(1)
+    } else if (selectedPath === 'import') {
+      setScreen(5)
+    } else if (selectedPath === 'skip') {
+      handleSkipNow()
+    }
+  }
+
   const next = () => setScreen(s => s + 1)
 
   return (
@@ -542,18 +717,25 @@ export default function OnboardingPage() {
         flex: 1,
       }}>
         {screen === 0 && (
-          <Screen1 name={name} setName={setName} onNext={next} />
+          <Screen0
+            selectedPath={selectedPath}
+            setSelectedPath={setSelectedPath}
+            onContinue={handlePathContinue}
+          />
         )}
         {screen === 1 && (
-          <Screen2 styles={styles} toggleStyle={toggleStyle} onNext={next} />
+          <Screen1 name={name} setName={setName} onNext={next} />
         )}
         {screen === 2 && (
-          <Screen3 voiceSample={voiceSample} setVoiceSample={setVoiceSample} onNext={next} />
+          <Screen2 styles={styles} toggleStyle={toggleStyle} onNext={next} />
         )}
         {screen === 3 && (
-          <Screen4 avoids={avoids} toggleAvoid={toggleAvoid} onNext={next} />
+          <Screen3 voiceSample={voiceSample} setVoiceSample={setVoiceSample} onNext={next} />
         )}
         {screen === 4 && (
+          <Screen4 avoids={avoids} toggleAvoid={toggleAvoid} onNext={next} />
+        )}
+        {screen === 5 && (
           <Screen5 onFinish={handleFinish} finishing={finishing} />
         )}
       </div>
