@@ -142,6 +142,70 @@ public class ProjectController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    // POST /api/v1/projects/{projectId}/context-document
+    // Accepts a single multipart file, extracts text, appends to projectContextText.
+    @PostMapping(value = "/{projectId}/context-document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadContextDocument(
+            @PathVariable UUID projectId,
+            @RequestParam("file") MultipartFile file) {
+
+        if (file.getSize() > 10L * 1024 * 1024) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "File exceeds 10MB limit"));
+        }
+
+        return projectRepository.findById(projectId)
+                .map(project -> {
+                    String extracted = documentExtractorService.extractText(file);
+
+                    if (!extracted.isBlank()) {
+                        String separator = "\n--- " + file.getOriginalFilename() + " ---\n";
+                        String existing = project.getProjectContextText();
+                        String newContext = (existing != null && !existing.isBlank())
+                                ? existing + separator + extracted.trim() + "\n"
+                                : separator + extracted.trim() + "\n";
+                        project.setProjectContextText(newContext);
+
+                        String currentSource = project.getContextSource();
+                        if (currentSource == null) {
+                            project.setContextSource("document");
+                        } else if (!currentSource.equals("document") && !currentSource.equals("mixed")) {
+                            project.setContextSource("mixed");
+                        }
+
+                        projectRepository.save(project);
+                    }
+
+                    return ResponseEntity.ok((Object) toDto(project));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // PUT /api/v1/projects/{projectId}/context-text
+    // Replaces projectContextText with the provided text body.
+    @PutMapping("/{projectId}/context-text")
+    public ResponseEntity<?> updateContextText(
+            @PathVariable UUID projectId,
+            @RequestBody Map<String, String> body) {
+
+        return projectRepository.findById(projectId)
+                .map(project -> {
+                    String text = body.get("text");
+                    project.setProjectContextText(text);
+
+                    String currentSource = project.getContextSource();
+                    if (currentSource == null) {
+                        project.setContextSource("manual");
+                    } else if (!currentSource.equals("manual") && !currentSource.equals("mixed")) {
+                        project.setContextSource("mixed");
+                    }
+
+                    projectRepository.save(project);
+                    return ResponseEntity.ok((Object) toDto(project));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     private ProjectDto toDto(Project p) {
         return ProjectDto.builder()
             .id(p.getId().toString()).name(p.getName())

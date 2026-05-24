@@ -169,17 +169,46 @@ function mergePersonasIfAbsent(projects: Project[]): Project[] {
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
+/** Upload a single file to the context-document endpoint. */
+async function uploadSingleDocument(
+  projectId: string,
+  file: File
+): Promise<{ characters: number }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const resp = await fetch(
+    `${BASE_URL}/api/v1/projects/${projectId}/context-document`,
+    { method: 'POST', body: formData }
+  )
+  return resp.json() as Promise<{ characters: number }>
+}
+
+/** Upload multiple files one at a time, returns aggregated character count. */
 async function uploadDocuments(
   projectId: string,
   files: File[]
 ): Promise<{ characters: number }> {
-  const formData = new FormData()
-  files.forEach(f => formData.append('files', f))
-  const resp = await fetch(
-    `${BASE_URL}/api/v1/projects/${projectId}/upload-context`,
-    { method: 'POST', body: formData }
+  let total = 0
+  for (const file of files) {
+    const result = await uploadSingleDocument(projectId, file)
+    total += result.characters ?? 0
+  }
+  return { characters: total }
+}
+
+/** Save free-text context to the context-text endpoint. */
+async function saveContextText(
+  projectId: string,
+  text: string
+): Promise<void> {
+  await fetch(
+    `${BASE_URL}/api/v1/projects/${projectId}/context-text`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    }
   )
-  return resp.json() as Promise<{ characters: number }>
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -388,9 +417,14 @@ function ContextUploadZone({ projectId, onFilesChange, onUploadSuccess }: Contex
     setUploading(true)
     setUploadError(null)
     try {
-      const result = await uploadDocuments(projectId, files)
-      setUploadResult(result)
-      onUploadSuccess?.(result)
+      let total = 0
+      for (const file of files) {
+        const result = await uploadSingleDocument(projectId, file)
+        total += result.characters ?? 0
+      }
+      const aggregated = { characters: total }
+      setUploadResult(aggregated)
+      onUploadSuccess?.(aggregated)
     } catch {
       setUploadError('Upload failed. Please try again.')
     } finally {
@@ -514,10 +548,10 @@ function ContextUploadZone({ projectId, onFilesChange, onUploadSuccess }: Contex
           {uploading ? (
             <>
               <Spinner />
-              Extracting...
+              Processing...
             </>
           ) : (
-            `Extract text from ${files.length} file${files.length !== 1 ? 's' : ''}`
+            `Upload ${files.length} file${files.length !== 1 ? 's' : ''}`
           )}
         </button>
       )}
@@ -574,32 +608,218 @@ function ContextUploadZone({ projectId, onFilesChange, onUploadSuccess }: Contex
   )
 }
 
-// ─── Context source chip ──────────────────────────────────────────────────────
+// ─── ContextTabsSection ───────────────────────────────────────────────────────
 
-function ContextSourceChip({ source }: { source: string }) {
-  const labelMap: Record<string, string> = {
-    url: 'Source: URL',
-    document: 'Source: Documents',
-    manual: 'Source: Manual',
-    mixed: 'Source: Mixed',
+type ContextTab = 'paste' | 'upload'
+
+interface ContextTabsSectionProps {
+  /** The current saved/draft text value */
+  contextText: string
+  /** Called when the user edits the textarea */
+  onContextTextChange: (val: string) => void
+  /** The original saved value — used to decide whether Save button is enabled */
+  savedContextText?: string
+  /** If provided, Save button fires PUT and Upload button fires POST immediately.
+   *  If null, all changes are held in local state (new-project flow). */
+  projectId: string | null
+  /** Called when files are selected (for deferred upload in new-project flow) */
+  onFilesChange?: (files: File[]) => void
+  /** Called after a successful document upload */
+  onUploadSuccess?: (result: { characters: number }) => void
+  /** Called after the Save context text button succeeds (edit flow only) */
+  onContextTextSaved?: () => void
+}
+
+function ContextTabsSection({
+  contextText,
+  onContextTextChange,
+  savedContextText,
+  projectId,
+  onFilesChange,
+  onUploadSuccess,
+  onContextTextSaved,
+}: ContextTabsSectionProps) {
+  const [activeTab, setActiveTab] = useState<ContextTab>('paste')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [savedOk, setSavedOk] = useState(false)
+
+  // Button is disabled when text is empty or unchanged from saved value
+  const isTextEmpty = contextText.trim() === ''
+  const isUnchanged = savedContextText !== undefined && contextText === savedContextText
+  const saveDisabled = isTextEmpty || isUnchanged || saving
+
+  const handleSaveText = async () => {
+    if (!projectId || saveDisabled) return
+    setSaving(true)
+    setSaveError(null)
+    setSavedOk(false)
+    try {
+      await saveContextText(projectId, contextText)
+      setSavedOk(true)
+      onContextTextSaved?.()
+    } catch {
+      setSaveError('Save failed. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
-  const label = labelMap[source] ?? `Source: ${source}`
+
+  // Pill styles
+  const pillBase: React.CSSProperties = {
+    padding: '8px 16px',
+    borderRadius: 8,
+    fontSize: 13,
+    fontFamily: 'var(--font-body)',
+    fontWeight: 600,
+    cursor: 'pointer',
+    border: 'none',
+    lineHeight: 1,
+    transition: 'background 0.12s, color 0.12s',
+  }
+  const pillActive: React.CSSProperties = {
+    ...pillBase,
+    background: '#3B82F6',
+    color: '#fff',
+  }
+  const pillInactive: React.CSSProperties = {
+    ...pillBase,
+    background: '#222',
+    color: '#fff',
+    border: '1px solid #333',
+  }
+
+  const textareaStyle: React.CSSProperties = {
+    width: '100%',
+    background: '#111',
+    border: '1px solid #333',
+    borderRadius: 10,
+    padding: '10px 12px',
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-body)',
+    fontSize: 14,
+    outline: 'none',
+    resize: 'vertical',
+    minHeight: 140,
+    boxSizing: 'border-box',
+  }
+
+  const saveButtonStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '10px 0',
+    background: '#3B82F6',
+    color: '#fff',
+    fontFamily: 'var(--font-body)',
+    fontSize: 13,
+    fontWeight: 700,
+    border: 'none',
+    borderRadius: 10,
+    cursor: saveDisabled ? 'not-allowed' : 'pointer',
+    opacity: saveDisabled ? 0.4 : 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    transition: 'opacity 0.12s',
+  }
+
   return (
-    <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      padding: '2px 9px',
-      borderRadius: 999,
-      background: 'rgba(59,130,246,0.12)',
-      border: '1px solid rgba(59,130,246,0.25)',
-      color: '#3B82F6',
-      fontSize: 10,
-      fontFamily: 'var(--font-mono)',
-      fontWeight: 600,
-      letterSpacing: 0.3,
-    }}>
-      {label}
-    </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Section heading */}
+      <div style={{
+        fontSize: 11,
+        color: '#555',
+        fontFamily: 'var(--font-mono)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.1em',
+      }}>
+        Project Context
+      </div>
+
+      {/* Tab pills */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          style={activeTab === 'paste' ? pillActive : pillInactive}
+          onClick={() => setActiveTab('paste')}
+        >
+          Paste text
+        </button>
+        <button
+          style={activeTab === 'upload' ? pillActive : pillInactive}
+          onClick={() => setActiveTab('upload')}
+        >
+          Upload documents
+        </button>
+      </div>
+
+      {/* Tab content */}
+      {activeTab === 'paste' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <textarea
+            rows={7}
+            value={contextText}
+            onChange={e => {
+              onContextTextChange(e.target.value)
+              setSavedOk(false)
+            }}
+            placeholder="Describe your business, paste brand guidelines, mission statement, product descriptions, or any context Claude should know about this project."
+            style={textareaStyle}
+          />
+          {/* Save button — only shown in edit mode (projectId exists) */}
+          {projectId && (
+            <button
+              onClick={handleSaveText}
+              disabled={saveDisabled}
+              style={saveButtonStyle}
+            >
+              {saving ? (
+                <>
+                  <Spinner />
+                  Saving...
+                </>
+              ) : savedOk ? (
+                <span style={{ color: '#1ED760' }}>&#10003; Saved</span>
+              ) : (
+                'Save context'
+              )}
+            </button>
+          )}
+          {saveError && (
+            <div style={{
+              fontSize: 12,
+              color: '#EF4444',
+              fontFamily: 'var(--font-mono)',
+              padding: '6px 10px',
+              background: 'rgba(239,68,68,0.08)',
+              borderRadius: 8,
+              border: '1px solid rgba(239,68,68,0.2)',
+            }}>
+              {saveError}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'upload' && (
+        <ContextUploadZone
+          projectId={projectId}
+          onFilesChange={onFilesChange}
+          onUploadSuccess={onUploadSuccess}
+        />
+      )}
+
+      {/* Summary line — only when contextText has content */}
+      {contextText.trim() !== '' && (
+        <div style={{
+          fontSize: 13,
+          color: '#888',
+          fontFamily: 'var(--font-body)',
+          marginTop: 4,
+        }}>
+          &#128196; Project context loaded &mdash; Claude will use this when generating posts for this project.
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -672,25 +892,8 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
     outline: 'none',
   }
 
-  const inputBase: React.CSSProperties = {
-    width: '100%',
-    background: 'var(--bg-raised)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 10,
-    padding: '10px 12px',
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-body)',
-    fontSize: 14,
-    outline: 'none',
-    resize: 'none' as const,
-    boxSizing: 'border-box' as const,
-  }
-
   const personas = form.personas ?? []
   const enabledPlatforms = ALL_PLATFORM_KEYS.filter(pk => form.platforms[pk]?.enabled)
-
-  // Derive contextSource from form state for display
-  const displaySource = form.contextSource
 
   return (
     <div style={{
@@ -744,85 +947,39 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
       </div>
 
       {/* ── Project Context section ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* Section heading */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{
-            fontSize: 11,
-            color: '#555',
-            fontFamily: 'var(--font-mono)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-          }}>
-            Project Context
-          </span>
-          {displaySource && <ContextSourceChip source={displaySource} />}
-        </div>
-
-        {/* Method 1 label */}
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: 0.3 }}>
-          Method 1 — Website URL is set during project creation
-        </div>
-
-        <SectionDivider />
-
-        {/* Method 2 — Upload documents */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Or upload documents
-            </label>
-          </div>
-          <ContextUploadZone
-            projectId={project.id}
-            onUploadSuccess={result => {
-              setForm(f => ({
-                ...f,
-                contextSource: f.contextSource && f.contextSource !== 'url'
-                  ? 'mixed'
-                  : f.contextSource === 'url' ? 'mixed' : 'document',
-              }))
-              // surfacing result — ContextUploadZone handles its own display
-              void result
-            }}
-          />
-        </div>
-
-        <SectionDivider />
-
-        {/* Method 3 — Paste context */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Or paste context directly
-            </label>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-              Brand guidelines, product description, mission statement &mdash; anything Claude should know
-            </span>
-          </div>
-          <textarea
-            rows={6}
-            value={form.projectContextText ?? ''}
-            onChange={e => {
-              setField('projectContextText', e.target.value)
-              if (e.target.value.trim()) {
-                setForm(f => ({
-                  ...f,
-                  contextSource: f.contextSource === 'url' || f.contextSource === 'document' || f.contextSource === 'mixed'
-                    ? 'mixed'
-                    : 'manual',
-                }))
-              }
-            }}
-            placeholder="Paste your brand guide, describe your product, add messaging guidelines..."
-            style={{
-              ...inputBase,
-              minHeight: 120,
-              resize: 'vertical',
-            }}
-          />
-        </div>
-      </div>
+      <ContextTabsSection
+        contextText={form.projectContextText ?? ''}
+        onContextTextChange={val => {
+          setField('projectContextText', val)
+          if (val.trim()) {
+            setForm(f => ({
+              ...f,
+              contextSource: f.contextSource === 'url' || f.contextSource === 'document' || f.contextSource === 'mixed'
+                ? 'mixed'
+                : 'manual',
+            }))
+          }
+        }}
+        savedContextText={project.projectContextText ?? ''}
+        projectId={project.id}
+        onUploadSuccess={result => {
+          setForm(f => ({
+            ...f,
+            contextSource: f.contextSource && f.contextSource !== 'url'
+              ? 'mixed'
+              : f.contextSource === 'url' ? 'mixed' : 'document',
+          }))
+          void result
+        }}
+        onContextTextSaved={() => {
+          setForm(f => ({
+            ...f,
+            contextSource: f.contextSource === 'url' || f.contextSource === 'document' || f.contextSource === 'mixed'
+              ? 'mixed'
+              : 'manual',
+          }))
+        }}
+      />
 
       {/* Platform toggles */}
       <div>
@@ -1274,22 +1431,8 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
           flexDirection: 'column',
           gap: 14,
         }}>
-          {/* Section heading */}
-          <div style={{
-            fontSize: 11,
-            color: '#555',
-            fontFamily: 'var(--font-mono)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-          }}>
-            Project Context
-          </div>
-
-          {/* Method 1 — Website URL */}
+          {/* Website URL — Method 1 (always shown in new-project flow) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: 0.3 }}>
-              Method 1 &mdash; Website URL
-            </div>
             <div style={{
               fontSize: 12,
               fontWeight: 600,
@@ -1341,47 +1484,13 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
 
           <SectionDivider />
 
-          {/* Method 2 — Upload documents */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: 0.3 }}>
-              Method 2 &mdash; Upload documents
-            </div>
-            <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Or upload documents
-            </label>
-            <ContextUploadZone
-              projectId={null}
-              onFilesChange={handleFilesChange}
-            />
-          </div>
-
-          <SectionDivider />
-
-          {/* Method 3 — Paste text */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: 0.3 }}>
-              Method 3 &mdash; Paste text / brand guide
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Or paste context directly
-              </label>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                Brand guidelines, product description, mission statement &mdash; anything Claude should know
-              </span>
-            </div>
-            <textarea
-              rows={6}
-              value={projectContextText}
-              onChange={e => handleContextTextChange(e.target.value)}
-              placeholder="Paste your brand guide, describe your product, add messaging guidelines..."
-              style={{
-                ...inputBase,
-                minHeight: 120,
-                resize: 'vertical',
-              }}
-            />
-          </div>
+          {/* Tabbed context: Paste text / Upload documents */}
+          <ContextTabsSection
+            contextText={projectContextText}
+            onContextTextChange={handleContextTextChange}
+            projectId={null}
+            onFilesChange={handleFilesChange}
+          />
         </div>
 
         {/* ── Fields ── */}

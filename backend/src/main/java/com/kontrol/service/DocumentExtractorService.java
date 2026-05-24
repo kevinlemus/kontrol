@@ -1,6 +1,8 @@
 package com.kontrol.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -35,7 +37,7 @@ public class DocumentExtractorService {
     }
 
     private String extractPdf(InputStream is) throws Exception {
-        try (PDDocument doc = PDDocument.load(is)) {
+        try (PDDocument doc = Loader.loadPDF(new RandomAccessReadBuffer(is))) {
             PDFTextStripper stripper = new PDFTextStripper();
             return stripper.getText(doc);
         }
