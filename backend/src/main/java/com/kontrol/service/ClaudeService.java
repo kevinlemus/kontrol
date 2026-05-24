@@ -3,6 +3,7 @@ package com.kontrol.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kontrol.dto.DraftDto;
+import com.kontrol.dto.PerformanceInsightDto;
 import com.kontrol.model.Post;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,6 +38,7 @@ public class ClaudeService {
         this.objectMapper = objectMapper;
     }
 
+    /** Zero-extras overload — no subreddits, no insights. */
     public Map<String, DraftDto> generatePosts(
             String projectName,
             String projectContext,
@@ -44,7 +46,7 @@ public class ClaudeService {
             String userInput,
             List<String> platforms) {
         return generatePosts(projectName, projectContext, recentPosts, userInput, platforms,
-            List.of(), List.of());
+            List.of(), List.of(), List.of(), Map.of());
     }
 
     /**
@@ -53,6 +55,8 @@ public class ClaudeService {
      *
      * @param eligibleSubreddits List of subreddit names eligible for posting (cooldown already filtered out)
      * @param allSubreddits      Full list for display context (includes cooling-down ones)
+     * @param insights           Per-platform performance insights to inject into the system prompt
+     * @param subredditScores    Avg performance scores per subreddit to weight Claude's selection
      */
     public Map<String, DraftDto> generatePosts(
             String projectName,
@@ -61,7 +65,9 @@ public class ClaudeService {
             String userInput,
             List<String> platforms,
             List<String> eligibleSubreddits,
-            List<String> allSubreddits) {
+            List<String> allSubreddits,
+            List<PerformanceInsightDto> insights,
+            Map<String, Double> subredditScores) {
 
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("CLAUDE_API_KEY not set — returning placeholder drafts. Add to backend/.env to activate.");
@@ -79,7 +85,8 @@ public class ClaudeService {
             return placeholders;
         }
 
-        String systemPrompt = buildSystemPrompt(projectName, projectContext, recentPosts, eligibleSubreddits, allSubreddits);
+        String systemPrompt = buildSystemPrompt(projectName, projectContext, recentPosts,
+            eligibleSubreddits, allSubreddits, insights, subredditScores);
         String userPrompt = "Generate posts for platforms: " + String.join(", ", platforms)
             + "\n\nKevin's prompt: " + userInput;
         String responseText = callClaude(systemPrompt, userPrompt, 4096);
@@ -103,7 +110,9 @@ public class ClaudeService {
     private String buildSystemPrompt(String projectName, String projectContext,
                                       List<Post> recentPosts,
                                       List<String> eligibleSubreddits,
-                                      List<String> allSubreddits) {
+                                      List<String> allSubreddits,
+                                      List<PerformanceInsightDto> insights,
+                                      Map<String, Double> subredditScores) {
         StringBuilder sb = new StringBuilder();
         sb.append("You are Kevin's personal social media content generator inside the Kontrol app.\n");
         sb.append("Kevin is a solo creator who uses one authentic voice across all platforms.\n\n");
@@ -139,6 +148,27 @@ RESPONSE FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
 }
 Only include the platforms requested. Do not include others.
 """);
+
+        // Performance insights injection
+        if (insights != null && !insights.isEmpty()) {
+            List<PerformanceInsightDto> useful = insights.stream()
+                .filter(PerformanceInsightDto::isHasEnoughData).toList();
+            if (!useful.isEmpty()) {
+                sb.append("\nPERFORMANCE INSIGHTS FOR THIS PROJECT (calibrate suggestions accordingly):\n");
+                for (PerformanceInsightDto insight : useful) {
+                    sb.append("- ").append(insight.getPlatform()).append(": ")
+                      .append(insight.getInsightSummary()).append("\n");
+                }
+            }
+        }
+
+        // Subreddit performance scores
+        if (subredditScores != null && !subredditScores.isEmpty()) {
+            sb.append("\nSUBREDDIT PERFORMANCE SCORES (weight higher-scoring subreddits more heavily):\n");
+            subredditScores.forEach((sub, score) ->
+                sb.append(String.format("  - r/%s: avg score %.1f%n", sub, score)));
+        }
+
         if (!allSubreddits.isEmpty()) {
             sb.append("\nREDDIT SUBREDDIT SELECTION:\n");
             sb.append("You must select EXACTLY ONE subreddit for the RD post from the eligible list below.\n");

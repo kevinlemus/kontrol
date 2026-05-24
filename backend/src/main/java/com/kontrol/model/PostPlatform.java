@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -46,6 +47,33 @@ public class PostPlatform {
 
     @Column(name = "error_message")
     private String errorMessage;
+
+    @Column(name = "was_overridden")
+    private Boolean wasOverridden = false;
+
+    @Column(name = "original_content", columnDefinition = "TEXT")
+    private String originalContent;
+
+    @Column(name = "likes")
+    private Integer likes = 0;
+
+    @Column(name = "comments")
+    private Integer comments = 0;
+
+    @Column(name = "shares")
+    private Integer shares = 0;
+
+    @Column(name = "performance_score")
+    private BigDecimal performanceScore = BigDecimal.ZERO;
+
+    @Column(name = "posted_hour")
+    private Integer postedHour;
+
+    @Column(name = "posted_day_of_week")
+    private Integer postedDayOfWeek;
+
+    @Column(name = "performance_checked_at")
+    private OffsetDateTime performanceCheckedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

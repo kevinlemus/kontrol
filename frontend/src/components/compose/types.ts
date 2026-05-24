@@ -27,6 +27,7 @@ export interface PlatformDraft {
   hashtags?: string[]
   onScreenText?: string
   selectedPostType: PostType
+  postPlatformId?: string
 }
 
 export interface ComposeState {

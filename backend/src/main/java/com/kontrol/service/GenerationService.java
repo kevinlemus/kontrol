@@ -3,6 +3,7 @@ package com.kontrol.service;
 import com.kontrol.dto.DraftDto;
 import com.kontrol.dto.GenerateRequest;
 import com.kontrol.dto.GenerateResponse;
+import com.kontrol.dto.PerformanceInsightDto;
 import com.kontrol.model.Post;
 import com.kontrol.model.PostPlatform;
 import com.kontrol.model.SubredditMonitor;
@@ -29,6 +30,7 @@ public class GenerationService {
     private final PostPlatformRepository postPlatformRepository;
     private final ClaudeService claudeService;
     private final SubredditMonitorRepository subredditMonitorRepository;
+    private final PerformanceService performanceService;
 
     public GenerateResponse generate(GenerateRequest request) {
         UUID projectId = UUID.fromString(request.getProjectId());
@@ -47,6 +49,17 @@ public class GenerationService {
             nvl(project.getCurrentStatus())
         );
 
+        // Fetch performance insights per platform
+        List<PerformanceInsightDto> insights = request.getPlatforms().stream()
+            .map(pid -> performanceService.getInsightsForProject(projectId, pid))
+            .toList();
+
+        // Fetch subreddit performance scores for Reddit platform weighting
+        Map<String, Double> subredditScores = Map.of();
+        if (request.getPlatforms().contains("RD")) {
+            subredditScores = performanceService.getSubredditScores(projectId);
+        }
+
         // For Reddit: fetch monitored subreddits, filter by cooldown
         List<String> eligibleSubreddits = List.of();
         List<String> allSubreddits = List.of();
@@ -62,7 +75,7 @@ public class GenerationService {
 
         Map<String, DraftDto> drafts = claudeService.generatePosts(
             project.getName(), context, recentPosts, request.getPrompt(), request.getPlatforms(),
-            eligibleSubreddits, allSubreddits
+            eligibleSubreddits, allSubreddits, insights, subredditScores
         );
 
         Post post = Post.builder()
@@ -79,6 +92,7 @@ public class GenerationService {
                 .postId(post.getId())
                 .platform(entry.getKey())
                 .content(entry.getValue().getContent())
+                .originalContent(entry.getValue().getContent())
                 .postType(entry.getValue().getPostType())
                 .status("pending");
 
@@ -93,12 +107,14 @@ public class GenerationService {
                 builder.extraData(extraData);
             }
 
-            postPlatformRepository.save(builder.build());
+            PostPlatform savedPp = postPlatformRepository.save(builder.build());
+            entry.getValue().setPostPlatformId(savedPp.getId().toString());
         }
 
         return GenerateResponse.builder()
             .postId(post.getId().toString())
             .drafts(drafts)
+            .insights(insights)
             .build();
     }
 

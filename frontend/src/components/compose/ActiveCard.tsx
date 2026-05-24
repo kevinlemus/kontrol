@@ -4,7 +4,9 @@ import { CardHero } from './CardHero'
 import { CardContent } from './CardContent'
 import { ActionRow } from './ActionRow'
 import { PreviewCard } from './PreviewCard'
+import { ConfidenceIndicator } from './ConfidenceIndicator'
 import { useToast } from '../shared/Toast'
+import type { PerformanceInsightDto } from '../../api/types'
 
 interface ActiveCardProps {
   draft: PlatformDraft
@@ -20,6 +22,7 @@ interface ActiveCardProps {
   projectName: string
   projectId?: string
   onSubredditChange?: (subreddit: string) => void
+  insights?: PerformanceInsightDto[] | null
 }
 
 export function ActiveCard({
@@ -36,6 +39,7 @@ export function ActiveCard({
   projectName,
   projectId,
   onSubredditChange,
+  insights,
 }: ActiveCardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
   const [flash, setFlash] = useState(false)
@@ -294,6 +298,8 @@ export function ActiveCard({
       </div>
 
       <CardHero platform={platform} draft={draft} desktop={desktop} onTypeChange={onTypeChange} />
+
+      <ConfidenceIndicator platformId={platform.id} insights={insights} />
 
       {viewMode === 'edit' ? (
         <CardContent

@@ -12,7 +12,8 @@ import { SmartScheduleModal, ScheduledEntry } from './SmartScheduleModal'
 import { PlatformSelectSheet } from './PlatformSelectSheet'
 import { useToast } from '../shared/Toast'
 import { generateApi } from '../../api/generate'
-import type { GenerateResponse } from '../../api/types'
+import { performanceApi } from '../../api/performance'
+import type { GenerateResponse, PerformanceInsightDto } from '../../api/types'
 
 const ALL_PLATFORM_IDS: PlatformId[] = ['IG', 'TT', 'LI', 'RD', 'X', 'FB', 'YT', 'ST', 'IT', 'GJ']
 
@@ -419,6 +420,9 @@ export function ComposeScreen() {
   const [generating, setGenerating] = useState(false)
   const [showSmartSchedule, setShowSmartSchedule] = useState(false)
   const [showPlatformSheet, setShowPlatformSheet] = useState(false)
+  const [insights, setInsights] = useState<PerformanceInsightDto[] | null>(null)
+  const [postPlatformIds, setPostPlatformIds] = useState<Record<string, string>>({})
+  const [originalContents, setOriginalContents] = useState<Record<string, string>>({})
 
   // Re-derive enabled platforms when projectKey or projectName changes
   const enabledPlatforms = getEnabledPlatforms(state.projectName)
@@ -455,7 +459,19 @@ export function ComposeScreen() {
     }) &&
     selectedPlatforms.some(id => state.drafts[id]?.status === 'approved')
 
-  const handleSmartScheduleConfirm = useCallback((entries: ScheduledEntry[]) => {
+  const handleSmartScheduleConfirm = useCallback(async (entries: ScheduledEntry[]) => {
+    // Detect overrides — finalize all platforms where content was edited
+    const finalizePromises = Object.entries(postPlatformIds)
+      .filter(([pid]) => {
+        const draft = state.drafts[pid as PlatformId]
+        return draft && originalContents[pid] !== undefined && draft.content !== originalContents[pid]
+      })
+      .map(([pid, ppId]) => {
+        const draft = state.drafts[pid as PlatformId]
+        return performanceApi.finalizePostPlatform(ppId, draft.content).catch(() => {})
+      })
+    await Promise.all(finalizePromises)
+
     const batch = {
       id: `batch-${Date.now()}`,
       createdAt: new Date().toISOString(),
@@ -469,7 +485,7 @@ export function ComposeScreen() {
     } catch {}
     setShowSmartSchedule(false)
     navigate('/schedule')
-  }, [state.projectName, navigate])
+  }, [state.projectName, state.drafts, postPlatformIds, originalContents, navigate])
 
   const handleGenerate = useCallback(async () => {
     setGenerating(true)
@@ -486,17 +502,31 @@ export function ComposeScreen() {
         })
         // Build new drafts from API response
         const newDrafts = { ...state.drafts }
-        for (const [pid, draft] of Object.entries(resp.drafts)) {
+        for (const [pid, apiDraft] of Object.entries(resp.drafts)) {
           const platformId = pid as PlatformId
           newDrafts[platformId] = {
             ...newDrafts[platformId],
-            content: draft.content,
-            title: draft.title ?? newDrafts[platformId]?.title ?? '',
-            subreddit: draft.selectedSubreddit ?? newDrafts[platformId]?.subreddit,
-            subredditReasoning: draft.subredditReasoning ?? newDrafts[platformId]?.subredditReasoning,
+            content: apiDraft.content,
+            title: apiDraft.title ?? newDrafts[platformId]?.title ?? '',
+            subreddit: apiDraft.selectedSubreddit ?? newDrafts[platformId]?.subreddit,
+            subredditReasoning: apiDraft.subredditReasoning ?? newDrafts[platformId]?.subredditReasoning,
             status: 'pending' as const,
+            postPlatformId: apiDraft.postPlatformId ?? undefined,
           }
         }
+
+        if (resp.insights) setInsights(resp.insights)
+
+        // Store postPlatformIds per platform
+        const ids: Record<string, string> = {}
+        const originals: Record<string, string> = {}
+        Object.entries(resp.drafts).forEach(([pid, apiDraft]) => {
+          if (apiDraft.postPlatformId) ids[pid] = apiDraft.postPlatformId
+          originals[pid] = apiDraft.content
+        })
+        setPostPlatformIds(ids)
+        setOriginalContents(originals)
+
         setGenerating(false)
         setState(prev => ({
           ...prev,
@@ -510,6 +540,9 @@ export function ComposeScreen() {
     }
 
     // Mock fallback
+    setInsights([])
+    setPostPlatformIds({})
+    setOriginalContents({})
     setTimeout(() => {
       setGenerating(false)
       setState(prev => {
@@ -755,6 +788,7 @@ export function ComposeScreen() {
               projectName={state.projectName}
               projectId={activeProjectId ?? undefined}
               onSubredditChange={handleSubredditChange}
+              insights={insights}
             />
           </div>
         </div>
@@ -976,6 +1010,7 @@ export function ComposeScreen() {
           projectName={state.projectName}
           projectId={activeProjectId ?? undefined}
           onSubredditChange={handleSubredditChange}
+          insights={insights}
         />
       </div>
 

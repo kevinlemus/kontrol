@@ -16,6 +16,7 @@ export interface ApiDraft {
   status?: string
   selectedSubreddit?: string | null   // e.g. "bedroomproducers" (without r/)
   subredditReasoning?: string | null  // e.g. "Best fit — discusses vocal recording"
+  postPlatformId?: string | null
 }
 
 export interface ApiSubredditMonitor {
@@ -37,6 +38,7 @@ export interface GenerateRequest {
 export interface GenerateResponse {
   postId: string
   drafts: Record<string, ApiDraft>
+  insights?: PerformanceInsightDto[]
 }
 
 export interface ApiRedditSuggestion {
@@ -47,4 +49,30 @@ export interface ApiRedditSuggestion {
   suggestedComment: string
   status: 'pending' | 'posted' | 'dismissed'
   postedAt?: string | null
+}
+
+export interface PerformanceInsightDto {
+  platform: string
+  totalPosts: number
+  hasEnoughData: boolean
+  overrideAvgScore: number | null
+  claudeAvgScore: number | null
+  overrideImprovementPct: number | null
+  bestHour: number | null
+  bestDayOfWeek: number | null
+  bestHourLabel: string | null
+  bestDayLabel: string | null
+  confidenceLabel: string   // "Learning..." or "Based on your data"
+  insightSummary: string
+}
+
+export interface SmartScheduleTimingDto {
+  usingPersonalizedData: boolean
+  dataMessage: string
+  timings: Record<string, {
+    hour: number
+    dayOfWeek: number
+    personalized: boolean
+    label: string
+  }>
 }

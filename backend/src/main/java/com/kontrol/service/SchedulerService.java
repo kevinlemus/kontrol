@@ -66,7 +66,11 @@ public class SchedulerService {
                 pp.setStatus(r.isSuccess() ? "published" : "failed");
                 pp.setErrorMessage(r.getErrorMessage());
                 pp.setPlatformPostId(r.getPlatformPostId());
-                if (r.isSuccess()) pp.setPublishedAt(OffsetDateTime.now());
+                if (r.isSuccess()) {
+                    pp.setPublishedAt(OffsetDateTime.now());
+                    pp.setPostedHour(pp.getPublishedAt().getHour());
+                    pp.setPostedDayOfWeek(pp.getPublishedAt().getDayOfWeek().getValue()); // Mon=1, Sun=7
+                }
                 postPlatformRepository.save(pp);
                 if (!r.isSuccess()) anyFailed = true;
                 log.info("Published {} -> {}: ok={}", sp.getPostId(), pp.getPlatform(), r.isSuccess());

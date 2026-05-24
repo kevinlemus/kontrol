@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -14,4 +15,5 @@ import java.util.Map;
 public class GenerateResponse {
     private String postId;
     private Map<String, DraftDto> drafts;
+    private List<PerformanceInsightDto> insights;
 }

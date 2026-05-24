@@ -17,4 +17,5 @@ public class DraftDto {
     private String status;
     private String selectedSubreddit;   // e.g. "bedroomproducers" (without r/)
     private String subredditReasoning;  // e.g. "Best fit — discusses vocal recording"
+    private String postPlatformId;      // UUID string — set by GenerationService after saving PostPlatform row
 }

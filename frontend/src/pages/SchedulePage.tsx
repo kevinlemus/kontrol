@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/shared/PageHeader'
 import { useToast } from '../components/shared/Toast'
+import { performanceApi } from '../api/performance'
+import type { SmartScheduleTimingDto } from '../api/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -488,6 +490,26 @@ function EmptyState({ onGoToCompose }: { onGoToCompose: () => void }) {
   )
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+interface StoredProject {
+  id: string
+  name: string
+  active: boolean
+  platforms: Record<string, { enabled: boolean }>
+}
+
+function getActiveScheduleProjectId(): string | null {
+  try {
+    const stored = localStorage.getItem('kontrol_projects')
+    if (!stored) return null
+    const projects = JSON.parse(stored) as StoredProject[]
+    return projects.find(p => p.active)?.id ?? null
+  } catch {
+    return null
+  }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function SchedulePage() {
@@ -496,6 +518,7 @@ export function SchedulePage() {
   const [posts, setPosts] = useState<ScheduledPost[]>(INITIAL_POSTS)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [showLegend, setShowLegend] = useState(false)
+  const [scheduleTiming, setScheduleTiming] = useState<SmartScheduleTimingDto | null>(null)
   const [smartBatches, setSmartBatches] = useState<SmartBatch[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('kontrol_smart_schedule') ?? '[]')
@@ -525,7 +548,22 @@ export function SchedulePage() {
             {/* Info button */}
             <div style={{ position: 'relative' }}>
               <button
-                onClick={e => { e.stopPropagation(); setShowLegend(s => !s) }}
+                onClick={e => {
+                  e.stopPropagation()
+                  const nextOpen = !showLegend
+                  setShowLegend(nextOpen)
+                  if (nextOpen) {
+                    const activeProjectId = getActiveScheduleProjectId()
+                    const enabledPlatformIds = posts
+                      .flatMap(p => p.platforms)
+                      .filter((v, i, a) => a.indexOf(v) === i)
+                    if (activeProjectId) {
+                      performanceApi.getScheduleTiming(activeProjectId, enabledPlatformIds)
+                        .then(setScheduleTiming)
+                        .catch(() => {}) // keep null on failure, fall back to hardcoded
+                    }
+                  }
+                }}
                 style={{
                   width: 28, height: 28,
                   borderRadius: '50%',
@@ -561,6 +599,17 @@ export function SchedulePage() {
                     boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
                   }}
                 >
+                  {scheduleTiming && (
+                    <div style={{
+                      padding: '6px 0 10px',
+                      fontSize: 11.5, fontFamily: 'var(--font-mono)',
+                      color: scheduleTiming.usingPersonalizedData ? '#1ED760' : 'var(--text-muted)',
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
+                      marginBottom: 10,
+                    }}>
+                      {scheduleTiming.dataMessage}
+                    </div>
+                  )}
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
                     Optimal windows
                   </div>
@@ -665,8 +714,12 @@ export function SchedulePage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 0, minWidth: 'max-content' }}>
                   {batch.posts.map((post, i) => {
                     const t = new Date(post.scheduledAt)
-                    const label = t.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                    const fallbackLabel = t.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                     const isToday = t.toDateString() === new Date('2026-05-23').toDateString()
+                    const timingEntry = scheduleTiming?.timings[post.platformId]
+                    const displayLabel = timingEntry
+                      ? `${timingEntry.personalized ? '\u{1F4CA} ' : ''}${timingEntry.label}`
+                      : (isToday ? fallbackLabel : `tmrw ${fallbackLabel}`)
                     return (
                       <React.Fragment key={post.platformId + i}>
                         {i > 0 && (
@@ -700,11 +753,11 @@ export function SchedulePage() {
                           </div>
                           <span style={{
                             fontSize: 9.5,
-                            color: isToday ? 'var(--text-secondary)' : 'var(--accent)',
+                            color: timingEntry?.personalized ? '#1ED760' : (isToday ? 'var(--text-secondary)' : 'var(--accent)'),
                             fontFamily: 'var(--font-mono)',
                             whiteSpace: 'nowrap',
                           }}>
-                            {isToday ? label : `tmrw ${label}`}
+                            {displayLabel}
                           </span>
                         </div>
                       </React.Fragment>
