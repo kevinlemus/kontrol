@@ -6,6 +6,5 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserSettingsRepository extends JpaRepository<UserSettings, UUID> {
-    Optional<UserSettings> findTopByOrderByCreatedAtAsc();
     Optional<UserSettings> findByEmail(String email);
 }

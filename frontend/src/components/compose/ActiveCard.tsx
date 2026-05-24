@@ -6,6 +6,7 @@ import { ActionRow } from './ActionRow'
 import { PreviewCard } from './PreviewCard'
 import { ConfidenceIndicator } from './ConfidenceIndicator'
 import { useToast } from '../shared/Toast'
+import { performanceApi } from '../../api/performance'
 import type { PerformanceInsightDto } from '../../api/types'
 
 interface ActiveCardProps {
@@ -145,6 +146,32 @@ export function ActiveCard({
     showToast('Thanks for the feedback!')
   }
 
+  // ─── edited_in_app overlay ──────────────────────────────────────────────────
+  const [editedInAppDismissed, setEditedInAppDismissed] = useState(false)
+  const [markingPosted, setMarkingPosted] = useState(false)
+
+  // Reset dismissed state when platform changes
+  useEffect(() => {
+    setEditedInAppDismissed(false)
+  }, [draft.platformId])
+
+  const handleMarkAsPosted = useCallback(async () => {
+    if (!draft.postPlatformId) return
+    setMarkingPosted(true)
+    try {
+      await performanceApi.markAsPosted(draft.postPlatformId)
+      showToast('Marked as posted — performance tracking will update in 48h', 2500)
+      setEditedInAppDismissed(true)
+    } catch {
+      showToast('Failed to mark as posted — try again')
+    } finally {
+      setMarkingPosted(false)
+    }
+  }, [draft.postPlatformId, showToast])
+
+  // Show the "did you post it?" prompt when status is edited_in_app and not dismissed
+  const showEditedInAppPrompt = draft.status === 'edited_in_app' && !editedInAppDismissed
+
   return (
     <div style={{
       background: 'var(--bg-card)',
@@ -156,6 +183,116 @@ export function ActiveCard({
       flex: desktop ? 1 : 'none',
       position: 'relative',
     }}>
+      {/* edited_in_app — "Did you post it?" overlay */}
+      {showEditedInAppPrompt && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: '#1a1a1a',
+          zIndex: 120,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '24px 20px',
+          gap: 20,
+          borderRadius: desktop ? 'var(--radius-card)' : 'var(--radius-card) var(--radius-card) 0 0',
+        }}>
+          {/* Platform icon + name */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{
+              width: 36,
+              height: 36,
+              borderRadius: 9,
+              background: platform.gradient,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 10,
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 800,
+              color: '#fff',
+              flexShrink: 0,
+            }}>
+              {platform.id}
+            </span>
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 15,
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+            }}>
+              {platform.name}
+            </span>
+          </div>
+
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 16,
+            color: 'rgba(255,255,255,0.8)',
+            textAlign: 'center',
+            margin: 0,
+            lineHeight: 1.4,
+          }}>
+            Opened in {platform.name} — did you post it?
+          </p>
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 280 }}>
+            <button
+              onClick={handleMarkAsPosted}
+              disabled={markingPosted || !draft.postPlatformId}
+              style={{
+                width: '100%',
+                padding: '13px 0',
+                background: markingPosted ? 'rgba(30,215,96,0.5)' : '#1ED760',
+                border: 'none',
+                borderRadius: 12,
+                color: '#000',
+                fontFamily: 'var(--font-body)',
+                fontSize: 14,
+                fontWeight: 800,
+                cursor: markingPosted ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 7,
+                boxShadow: markingPosted ? 'none' : '0 0 16px rgba(30,215,96,0.3)',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 7.5l3 3 7-7" stroke="#000" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {markingPosted ? 'Marking...' : 'Yes, mark as posted'}
+            </button>
+            <button
+              onClick={() => setEditedInAppDismissed(true)}
+              style={{
+                width: '100%',
+                padding: '13px 0',
+                background: '#333',
+                border: 'none',
+                borderRadius: 12,
+                color: 'rgba(255,255,255,0.7)',
+                fontFamily: 'var(--font-body)',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 7,
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M1.5 1.5l9 9M10.5 1.5l-9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+              Not yet
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Three-dot menu button — positioned top-right */}
       <div
         ref={menuRef}

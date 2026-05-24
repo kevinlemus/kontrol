@@ -13,4 +13,7 @@ export const performanceApi = {
 
   finalizePostPlatform: (postPlatformId: string, finalContent: string): Promise<void> =>
     api.patch(`/api/v1/posts/platforms/${postPlatformId}/finalize`, { finalContent }),
+
+  markAsPosted: (postPlatformId: string): Promise<void> =>
+    api.patch(`/api/v1/posts/platforms/${postPlatformId}/mark-posted`),
 }

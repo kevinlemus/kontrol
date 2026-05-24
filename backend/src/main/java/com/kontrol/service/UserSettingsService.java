@@ -11,6 +11,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -22,19 +24,83 @@ public class UserSettingsService {
 
     private static final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
 
-    /** Get the single user row. Returns a default if table is empty. */
-    public UserSettings getUser() {
-        return userSettingsRepository.findTopByOrderByCreatedAtAsc()
-            .orElse(UserSettings.builder().name("User").passwordHash("").build());
+    public UserSettingsDto register(String name, String email, String password) {
+        if (userSettingsRepository.findByEmail(email).isPresent()) {
+            throw new RuntimeException("Email already registered");
+        }
+        UserSettings u = UserSettings.builder()
+            .name(name)
+            .email(email)
+            .passwordHash(bcrypt.encode(password))
+            .onboardingCompleted(false)
+            .build();
+        return toDto(userSettingsRepository.save(u));
     }
 
-    /** Lightweight context for Claude — never includes password hash. */
-    public UserContextDto getUserContext() {
-        UserSettings u = getUser();
+    public String generateTokenForUser(UUID userId) {
+        return jwtUtil.generateToken(userId.toString());
+    }
+
+    public Optional<UserSettings> findByEmail(String email) {
+        return userSettingsRepository.findByEmail(email);
+    }
+
+    public UserSettings getById(UUID userId) {
+        return userSettingsRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    public UserContextDto getUserContext(UUID userId) {
+        UserSettings u = getById(userId);
         return UserContextDto.builder()
             .name(u.getName())
             .voiceProfile(u.getVoiceProfile())
             .build();
+    }
+
+    /**
+     * Fallback for scheduled jobs that have no HTTP context — returns context for the first user.
+     * Safe for a solo app where there is always exactly one user.
+     */
+    public UserContextDto getUserContextFallback() {
+        return userSettingsRepository.findAll().stream()
+            .findFirst()
+            .map(u -> UserContextDto.builder()
+                .name(u.getName())
+                .voiceProfile(u.getVoiceProfile())
+                .build())
+            .orElse(UserContextDto.builder().name("User").voiceProfile(null).build());
+    }
+
+    /**
+     * Validate email + password. Returns a JWT token string on success, null if credentials invalid.
+     */
+    public String login(String email, String password) {
+        Optional<UserSettings> opt = userSettingsRepository.findByEmail(email);
+        if (opt.isEmpty()) return null;
+        UserSettings u = opt.get();
+        if (!bcrypt.matches(password, u.getPasswordHash())) return null;
+        return jwtUtil.generateToken(u.getId().toString());
+    }
+
+    public UserSettingsDto updateSettings(UUID userId, String name, String email,
+                                          String voiceProfile, Boolean onboardingCompleted) {
+        UserSettings u = getById(userId);
+        if (name != null) u.setName(name);
+        if (email != null) u.setEmail(email);
+        if (voiceProfile != null) u.setVoiceProfile(voiceProfile);
+        if (onboardingCompleted != null) u.setOnboardingCompleted(onboardingCompleted);
+        u.setUpdatedAt(OffsetDateTime.now());
+        return toDto(userSettingsRepository.save(u));
+    }
+
+    public boolean changePassword(UUID userId, String currentPassword, String newPassword) {
+        UserSettings u = getById(userId);
+        if (!bcrypt.matches(currentPassword, u.getPasswordHash())) return false;
+        u.setPasswordHash(bcrypt.encode(newPassword));
+        u.setUpdatedAt(OffsetDateTime.now());
+        userSettingsRepository.save(u);
+        return true;
     }
 
     public UserSettingsDto toDto(UserSettings u) {
@@ -43,52 +109,7 @@ public class UserSettingsService {
             .name(u.getName())
             .email(u.getEmail())
             .voiceProfile(u.getVoiceProfile())
+            .onboardingCompleted(u.isOnboardingCompleted())
             .build();
-    }
-
-    /**
-     * Validate password against stored BCrypt hash.
-     * Returns a JWT token on success, null on failure.
-     */
-    public String login(String password) {
-        UserSettings u = getUser();
-        if (u.getId() == null) return null; // no user in DB
-        if (!bcrypt.matches(password, u.getPasswordHash())) return null;
-        return jwtUtil.generateToken(u.getId().toString());
-    }
-
-    /** Update name, email, voice profile. Pass null to leave unchanged. */
-    public UserSettingsDto updateSettings(String name, String email, String voiceProfile) {
-        UserSettings u = getUser();
-        if (name != null && !name.isBlank()) u.setName(name);
-        if (email != null) u.setEmail(email);
-        if (voiceProfile != null) u.setVoiceProfile(voiceProfile);
-        u.setUpdatedAt(OffsetDateTime.now());
-        return toDto(userSettingsRepository.save(u));
-    }
-
-    /** Change password — validates current password first. Returns false if wrong. */
-    public boolean changePassword(String currentPassword, String newPassword) {
-        UserSettings u = getUser();
-        if (!bcrypt.matches(currentPassword, u.getPasswordHash())) return false;
-        u.setPasswordHash(bcrypt.encode(newPassword));
-        u.setUpdatedAt(OffsetDateTime.now());
-        userSettingsRepository.save(u);
-        return true;
-    }
-
-    /** One-time setup: only works when password_hash = 'SETUP_REQUIRED'. */
-    public boolean setupPassword(String newPassword) {
-        UserSettings u = getUser();
-        if (!"SETUP_REQUIRED".equals(u.getPasswordHash())) return false;
-        u.setPasswordHash(bcrypt.encode(newPassword));
-        u.setUpdatedAt(OffsetDateTime.now());
-        userSettingsRepository.save(u);
-        log.info("Password set via setup endpoint. This endpoint is now disabled.");
-        return true;
-    }
-
-    public boolean validateToken(String token) {
-        return jwtUtil.isValid(token);
     }
 }

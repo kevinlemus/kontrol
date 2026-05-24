@@ -235,6 +235,43 @@ Only include the platforms requested. Do not include others.
         }
     }
 
+    /**
+     * Analyze scraped website text and return structured brand info.
+     * Returns map with keys: name, whatItIs, whoItsFor, vibe, suggestedTagline.
+     */
+    public Map<String, String> analyzeWebsite(String textContent, boolean isSocialProfile) {
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("CLAUDE_API_KEY not set — cannot analyze website");
+            throw new RuntimeException("CLAUDE_API_KEY not configured");
+        }
+        String extractionPrompt = isSocialProfile
+            ? "This is content from a social media profile. Extract: 1) The person/brand name 2) What they do in one sentence 3) Who their audience is in one sentence 4) Their tone/vibe in one sentence. Return ONLY valid JSON: {\"name\":\"\",\"whatItIs\":\"\",\"whoItsFor\":\"\",\"vibe\":\"\",\"suggestedTagline\":\"\"}"
+            : "Analyze this website content and extract: 1) The product/business name 2) What it is in one sentence 3) Who it's for in one sentence 4) The brand tone/vibe in one sentence 5) A key tagline if present. Return ONLY valid JSON: {\"name\":\"\",\"whatItIs\":\"\",\"whoItsFor\":\"\",\"vibe\":\"\",\"suggestedTagline\":\"\"}";
+
+        String systemPrompt = "You are a brand analyst. Extract structured info from website content. Return ONLY valid JSON with no markdown fences.";
+        String userMessage = textContent + "\n\n" + extractionPrompt;
+
+        String responseText = callClaude(systemPrompt, userMessage, 512);
+
+        try {
+            String cleaned = responseText.trim();
+            if (cleaned.startsWith("```")) {
+                cleaned = cleaned.replaceAll("^```[a-z]*\\n?", "").replaceAll("\\n?```$", "").trim();
+            }
+            JsonNode root = objectMapper.readTree(cleaned);
+            Map<String, String> result = new java.util.HashMap<>();
+            result.put("name", root.path("name").asText(""));
+            result.put("what_it_is", root.path("whatItIs").asText(""));
+            result.put("who_its_for", root.path("whoItsFor").asText(""));
+            result.put("vibe", root.path("vibe").asText(""));
+            result.put("suggested_tagline", root.path("suggestedTagline").asText(""));
+            return result;
+        } catch (Exception e) {
+            log.error("Failed to parse analyzeWebsite Claude response. Raw: {}", responseText, e);
+            throw new RuntimeException("Failed to parse Claude response: " + e.getMessage(), e);
+        }
+    }
+
     private Map<String, DraftDto> parseDrafts(String responseText, List<String> platforms) {
         Map<String, DraftDto> result = new HashMap<>();
         try {

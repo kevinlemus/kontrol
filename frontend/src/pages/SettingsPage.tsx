@@ -469,7 +469,7 @@ export function SettingsPage() {
     if (newPw !== confirmPw) { setPwError('Passwords do not match'); return }
     if (newPw.length < 8) { setPwError('Password must be at least 8 characters'); return }
     try {
-      const res = await authApi.changePassword({ currentPassword: currentPw, newPassword: newPw })
+      const res = await authApi.changePassword(currentPw, newPw)
       if (res.error) { setPwError(res.error); return }
       showToast('Password updated')
       setShowPasswordForm(false)

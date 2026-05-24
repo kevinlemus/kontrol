@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -41,6 +42,21 @@ public class PostController {
                 pp.setStatus(body.get("status"));
                 postPlatformRepository.save(pp);
             });
+        return ResponseEntity.noContent().build();
+    }
+
+    // BACKEND-AGENT: PATCH /api/v1/posts/platforms/{postPlatformId}/mark-posted complete
+
+    @PatchMapping("/platforms/{postPlatformId}/mark-posted")
+    public ResponseEntity<Void> markAsPosted(@PathVariable UUID postPlatformId) {
+        postPlatformRepository.findById(postPlatformId).ifPresent(pp -> {
+            OffsetDateTime now = OffsetDateTime.now();
+            pp.setStatus("published");
+            pp.setPublishedAt(now);
+            pp.setPostedHour(now.getHour());
+            pp.setPostedDayOfWeek(now.getDayOfWeek().getValue()); // 1=Mon, 7=Sun
+            postPlatformRepository.save(pp);
+        });
         return ResponseEntity.noContent().build();
     }
 

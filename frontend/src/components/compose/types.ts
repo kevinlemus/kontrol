@@ -1,5 +1,5 @@
 export type PlatformId = 'IG' | 'TT' | 'LI' | 'RD' | 'X' | 'FB' | 'YT' | 'ST' | 'IT' | 'GJ'
-export type PostStatus = 'pending' | 'generating' | 'draft' | 'approved' | 'skipped'
+export type PostStatus = 'pending' | 'generating' | 'draft' | 'approved' | 'skipped' | 'edited_in_app'
 export type PostType = 'post' | 'story' | 'short' | 'reel' | 'tweet' | 'text' | 'announcement' | 'devlog'
 export type ViewMode = 'edit' | 'preview'
 

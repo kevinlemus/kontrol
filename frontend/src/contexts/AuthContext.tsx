@@ -1,16 +1,20 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
+import { authApi } from '../api/auth'
+import type { LoginResponse } from '../api/auth'
 
 export interface AuthUser {
   id?: string
   name: string
   email?: string
   voiceProfile?: string
+  onboardingCompleted?: boolean
   token: string
 }
 
 interface AuthContextValue {
   user: AuthUser | null
-  login: (user: AuthUser) => void
+  login: (email: string, password: string) => Promise<void>
+  register: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
   updateUser: (updates: Partial<Omit<AuthUser, 'token'>>) => void
 }
@@ -18,6 +22,19 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 const STORAGE_KEY = 'kontrol_auth'
+
+const CLEAR_KEYS = ['kontrol_projects', 'kontrol_smart_schedule', 'kontrol_voice_edits']
+
+function responseToUser(res: LoginResponse): AuthUser {
+  return {
+    id: res.user.id,
+    name: res.user.name,
+    email: res.user.email,
+    voiceProfile: res.user.voice_profile,
+    onboardingCompleted: res.user.onboarding_completed,
+    token: res.token,
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
@@ -29,12 +46,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   })
 
-  const login = useCallback((newUser: AuthUser) => {
+  const persistUser = useCallback((newUser: AuthUser) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser))
-    // Also write name to legacy key so settingsApi.getCachedUserName() stays in sync
     localStorage.setItem('kontrol_user_name', newUser.name)
     setUser(newUser)
   }, [])
+
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await authApi.login(email, password)
+    // Clear stale data from previous session
+    CLEAR_KEYS.forEach(k => localStorage.removeItem(k))
+    persistUser(responseToUser(res))
+  }, [persistUser])
+
+  const register = useCallback(async (name: string, email: string, password: string) => {
+    const res = await authApi.register(name, email, password)
+    // Clear stale data
+    CLEAR_KEYS.forEach(k => localStorage.removeItem(k))
+    persistUser(responseToUser(res))
+  }, [persistUser])
 
   const logout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY)
@@ -52,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

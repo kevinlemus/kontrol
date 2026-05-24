@@ -40,7 +40,7 @@ public class GenerationService {
         var project = projectRepository.findById(projectId)
             .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        UserContextDto userContext = userSettingsService.getUserContext();
+        UserContextDto userContext = userSettingsService.getUserContextFallback();
 
         List<Post> recentPosts = postRepository.findTop10ByProjectIdOrderByCreatedAtDesc(projectId);
 

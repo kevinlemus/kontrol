@@ -81,7 +81,7 @@ public class RedditMonitorJob {
         var project = projectRepo.findById(m.getProjectId()).orElse(null);
         if (project == null) return;
 
-        UserContextDto userContext = userSettingsService.getUserContext();
+        UserContextDto userContext = userSettingsService.getUserContextFallback();
 
         String ctx = String.format("Project: %s — %s. Audience: %s. Vibe: %s",
             project.getName(), nvl(project.getWhatItIs()), nvl(project.getWhoItsFor()), nvl(project.getVibe()));

@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/shared/PageHeader'
 import { Toggle } from '../components/shared/Toggle'
 import { projectsApi } from '../api/projects'
+import { authApi } from '../api/auth'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -661,12 +662,66 @@ interface NewProjectFormProps {
   onCancel: () => void
 }
 
+// ─── Spinner ──────────────────────────────────────────────────────────────────
+
+function Spinner() {
+  const [angle, setAngle] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setAngle(a => (a + 30) % 360), 80)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <span style={{
+      display: 'inline-block',
+      transform: `rotate(${angle}deg)`,
+      fontSize: 14,
+      lineHeight: 1,
+      color: 'var(--text-muted)',
+    }}>
+      &#8635;
+    </span>
+  )
+}
+
 function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
   const [name, setName] = useState('')
   const [whatItIs, setWhatItIs] = useState('')
   const [whoItsFor, setWhoItsFor] = useState('')
   const [vibe, setVibe] = useState('')
   const [currentStatus, setCurrentStatus] = useState('')
+
+  // URL analysis state
+  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [analyzing, setAnalyzing] = useState(false)
+  const [aiSuggested, setAiSuggested] = useState<Set<string>>(new Set())
+
+  const handleAnalyze = async () => {
+    if (!websiteUrl.trim() || analyzing) return
+    setAnalyzing(true)
+    try {
+      const res = await authApi.analyzeUrl(websiteUrl.trim())
+      const suggested = new Set<string>()
+
+      if (res.name) { setName(res.name); suggested.add('name') }
+      if (res.what_it_is) { setWhatItIs(res.what_it_is); suggested.add('whatItIs') }
+      if (res.who_its_for) { setWhoItsFor(res.who_its_for); suggested.add('whoItsFor') }
+      if (res.vibe) { setVibe(res.vibe); suggested.add('vibe') }
+
+      setAiSuggested(suggested)
+    } catch {
+      // Silently ignore — backend may be offline
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  const clearSuggested = (field: string) => {
+    setAiSuggested(prev => {
+      const next = new Set(prev)
+      next.delete(field)
+      return next
+    })
+  }
 
   const handleCreate = () => {
     if (!name.trim()) return
@@ -685,6 +740,32 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
     onCreate(newProject)
   }
 
+  const AiLabel = ({ field }: { field: string }) =>
+    aiSuggested.has(field) ? (
+      <div style={{
+        fontSize: 11,
+        color: '#3B82F6',
+        fontFamily: 'var(--font-body)',
+        marginTop: 3,
+      }}>
+        AI suggested — review and edit
+      </div>
+    ) : null
+
+  const inputBase: React.CSSProperties = {
+    width: '100%',
+    background: 'var(--bg-raised)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    padding: '10px 12px',
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-body)',
+    fontSize: 14,
+    outline: 'none',
+    resize: 'none' as const,
+    boxSizing: 'border-box',
+  }
+
   return (
     <div style={{
       background: 'var(--bg-card)',
@@ -698,11 +779,128 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
         New Project
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <InputField label="Name" value={name} onChange={setName} />
-        <InputField label="What it is" value={whatItIs} onChange={setWhatItIs} multiline />
-        <InputField label="Who it's for" value={whoItsFor} onChange={setWhoItsFor} multiline />
-        <InputField label="Vibe" value={vibe} onChange={setVibe} multiline />
-        <InputField label="Current status" value={currentStatus} onChange={setCurrentStatus} />
+
+        {/* ── URL analysis section ── */}
+        <div style={{
+          background: 'var(--bg-raised)',
+          borderRadius: 10,
+          padding: '12px 14px',
+          border: '1px solid rgba(255,255,255,0.06)',
+        }}>
+          <div style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            fontFamily: 'var(--font-body)',
+            marginBottom: 10,
+          }}>
+            Learn from a website{' '}
+            <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="url"
+              value={websiteUrl}
+              onChange={e => setWebsiteUrl(e.target.value)}
+              placeholder="Paste your website URL..."
+              onKeyDown={e => { if (e.key === 'Enter') handleAnalyze() }}
+              style={{
+                ...inputBase,
+                flex: 1,
+                fontSize: 13,
+                padding: '9px 11px',
+              }}
+            />
+            <button
+              onClick={handleAnalyze}
+              disabled={analyzing || !websiteUrl.trim()}
+              style={{
+                flexShrink: 0,
+                padding: '9px 14px',
+                background: analyzing || !websiteUrl.trim() ? 'rgba(59,130,246,0.3)' : '#3B82F6',
+                border: 'none',
+                borderRadius: 10,
+                color: '#fff',
+                fontFamily: 'var(--font-body)',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: analyzing || !websiteUrl.trim() ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {analyzing && <Spinner />}
+              {analyzing ? 'Analyzing...' : 'Analyze'}
+            </button>
+          </div>
+        </div>
+
+        {/* ── Fields ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={e => { setName(e.target.value); clearSuggested('name') }}
+            style={inputBase}
+          />
+          <AiLabel field="name" />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            What it is
+          </label>
+          <textarea
+            rows={2}
+            value={whatItIs}
+            onChange={e => { setWhatItIs(e.target.value); clearSuggested('whatItIs') }}
+            style={inputBase}
+          />
+          <AiLabel field="whatItIs" />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Who it&apos;s for
+          </label>
+          <textarea
+            rows={2}
+            value={whoItsFor}
+            onChange={e => { setWhoItsFor(e.target.value); clearSuggested('whoItsFor') }}
+            style={inputBase}
+          />
+          <AiLabel field="whoItsFor" />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Vibe
+          </label>
+          <textarea
+            rows={2}
+            value={vibe}
+            onChange={e => { setVibe(e.target.value); clearSuggested('vibe') }}
+            style={inputBase}
+          />
+          <AiLabel field="vibe" />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Current status
+          </label>
+          <input
+            type="text"
+            value={currentStatus}
+            onChange={e => setCurrentStatus(e.target.value)}
+            style={inputBase}
+          />
+        </div>
 
         <button
           onClick={handleCreate}

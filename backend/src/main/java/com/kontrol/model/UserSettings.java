@@ -28,6 +28,9 @@ public class UserSettings {
     @Column(name = "voice_profile", columnDefinition = "TEXT")
     private String voiceProfile;
 
+    @Column(name = "onboarding_completed")
+    private boolean onboardingCompleted = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

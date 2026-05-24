@@ -9,6 +9,10 @@ import { SchedulePage } from './pages/SchedulePage'
 import { RedditPage } from './pages/RedditPage'
 import { SettingsPage } from './pages/SettingsPage'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
+import OnboardingPage from './pages/OnboardingPage'
+
+const NO_NAV_PATHS = ['/login', '/register', '/onboarding', '/settings']
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -18,14 +22,21 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function AppShell() {
   const location = useLocation()
-  const showNav = location.pathname !== '/settings' && location.pathname !== '/login'
+  const showNav = !NO_NAV_PATHS.includes(location.pathname)
 
   return (
     <ToastProvider>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <main style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           <Routes>
+            {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+
+            {/* Onboarding — requires auth */}
+            <Route path="/onboarding" element={<RequireAuth><OnboardingPage /></RequireAuth>} />
+
+            {/* All app routes — require auth */}
             <Route path="/*" element={
               <RequireAuth>
                 <Routes>

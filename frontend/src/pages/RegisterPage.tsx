@@ -2,36 +2,42 @@ import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
-export default function LoginPage() {
+export default function RegisterPage() {
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login, user } = useAuth()
+  const { register } = useAuth()
   const navigate = useNavigate()
 
-  // If already authed, redirect
-  React.useEffect(() => {
-    if (user) {
-      navigate(user.onboardingCompleted === false ? '/onboarding' : '/', { replace: true })
-    }
-  }, [user, navigate])
+  const validate = (): string | null => {
+    if (!name.trim()) return 'Name is required'
+    if (!email.includes('@')) return 'Enter a valid email'
+    if (password.length < 8) return 'Password must be at least 8 characters'
+    if (password !== confirmPassword) return 'Passwords do not match'
+    return null
+  }
 
-  const isDisabled = loading || !email.trim() || !password
+  const isDisabled = loading || !name.trim() || !email.trim() || !password || !confirmPassword
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (isDisabled) return
+    const validationError = validate()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
     setLoading(true)
     setError('')
     try {
-      await login(email.trim(), password)
-      // Navigation handled by the useEffect above (user state update triggers it)
-      // But we also navigate immediately for snappiness
-      // We need the updated user from context — check onboarding after login
+      await register(name.trim(), email.trim(), password)
+      navigate('/onboarding', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign in failed')
+      setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
       setLoading(false)
     }
@@ -49,6 +55,13 @@ export default function LoginPage() {
     width: '100%',
     boxSizing: 'border-box',
     transition: 'border-color .15s',
+  }
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'
+  }
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
   }
 
   return (
@@ -84,7 +97,7 @@ export default function LoginPage() {
         marginBottom: 32,
         textAlign: 'center',
       }}>
-        Welcome back
+        Create your account
       </div>
 
       <form onSubmit={handleSubmit} style={{
@@ -94,6 +107,19 @@ export default function LoginPage() {
         flexDirection: 'column',
         gap: 12,
       }}>
+        {/* Name */}
+        <input
+          type="text"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="Name"
+          autoComplete="name"
+          autoFocus
+          style={inputStyle}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+        />
+
         {/* Email */}
         <input
           type="email"
@@ -101,38 +127,22 @@ export default function LoginPage() {
           onChange={e => setEmail(e.target.value)}
           placeholder="Email"
           autoComplete="email"
-          autoFocus
-          style={{
-            ...inputStyle,
-            borderColor: error ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)',
-          }}
-          onFocus={e => {
-            if (!error) e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'
-          }}
-          onBlur={e => {
-            if (!error) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-          }}
+          style={inputStyle}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
         />
 
-        {/* Password + eye toggle */}
+        {/* Password */}
         <div style={{ position: 'relative' }}>
           <input
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="Password"
-            autoComplete="current-password"
-            style={{
-              ...inputStyle,
-              paddingRight: 48,
-              borderColor: error ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)',
-            }}
-            onFocus={e => {
-              if (!error) e.currentTarget.style.borderColor = 'rgba(59,130,246,0.5)'
-            }}
-            onBlur={e => {
-              if (!error) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-            }}
+            autoComplete="new-password"
+            style={{ ...inputStyle, paddingRight: 48 }}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
           />
           <button
             type="button"
@@ -152,18 +162,49 @@ export default function LoginPage() {
             }}
             aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
-            {showPassword ? (
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M2 9s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z" stroke="currentColor" strokeWidth="1.5"/>
-                <circle cx="9" cy="9" r="2" stroke="currentColor" strokeWidth="1.5"/>
-                <path d="M3 3l12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M2 9s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z" stroke="currentColor" strokeWidth="1.5"/>
-                <circle cx="9" cy="9" r="2" stroke="currentColor" strokeWidth="1.5"/>
-              </svg>
-            )}
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M2 9s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z" stroke="currentColor" strokeWidth="1.5"/>
+              <circle cx="9" cy="9" r="2" stroke="currentColor" strokeWidth="1.5"/>
+              {showPassword && <path d="M3 3l12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>}
+            </svg>
+          </button>
+        </div>
+
+        {/* Confirm password */}
+        <div style={{ position: 'relative' }}>
+          <input
+            type={showConfirm ? 'text' : 'password'}
+            value={confirmPassword}
+            onChange={e => setConfirmPassword(e.target.value)}
+            placeholder="Confirm password"
+            autoComplete="new-password"
+            style={{ ...inputStyle, paddingRight: 48 }}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirm(s => !s)}
+            style={{
+              position: 'absolute',
+              right: 14,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'rgba(255,255,255,0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              padding: 4,
+            }}
+            aria-label={showConfirm ? 'Hide password' : 'Show password'}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M2 9s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z" stroke="currentColor" strokeWidth="1.5"/>
+              <circle cx="9" cy="9" r="2" stroke="currentColor" strokeWidth="1.5"/>
+              {showConfirm && <path d="M3 3l12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>}
+            </svg>
           </button>
         </div>
 
@@ -179,7 +220,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Sign in button */}
+        {/* Submit button */}
         <button
           type="submit"
           disabled={isDisabled}
@@ -197,10 +238,10 @@ export default function LoginPage() {
             marginTop: 4,
           }}
         >
-          {loading ? 'Signing in...' : 'Sign in'}
+          {loading ? 'Creating account...' : 'Create account'}
         </button>
 
-        {/* Register link */}
+        {/* Sign in link */}
         <div style={{
           textAlign: 'center',
           fontSize: 14,
@@ -208,16 +249,16 @@ export default function LoginPage() {
           fontFamily: 'var(--font-body)',
           marginTop: 8,
         }}>
-          Don&apos;t have an account?{' '}
+          Already have an account?{' '}
           <Link
-            to="/register"
+            to="/login"
             style={{
               color: 'rgba(255,255,255,0.75)',
               textDecoration: 'none',
               fontWeight: 600,
             }}
           >
-            Create one
+            Sign in
           </Link>
         </div>
       </form>
@@ -225,4 +266,4 @@ export default function LoginPage() {
   )
 }
 
-// FRONTEND-AGENT: LoginPage complete
+// FRONTEND-AGENT: RegisterPage complete
