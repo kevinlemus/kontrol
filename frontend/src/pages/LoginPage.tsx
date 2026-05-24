@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+﻿import { useState, useEffect, CSSProperties, FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -12,7 +12,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
 
   // If already authed, redirect
-  React.useEffect(() => {
+  useEffect(() => {
     if (user) {
       navigate(user.onboardingCompleted === false ? '/onboarding' : '/', { replace: true })
     }
@@ -20,7 +20,7 @@ export default function LoginPage() {
 
   const isDisabled = loading || !email.trim() || !password
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (isDisabled) return
     setLoading(true)
@@ -37,7 +37,7 @@ export default function LoginPage() {
     }
   }
 
-  const inputStyle: React.CSSProperties = {
+  const inputStyle: CSSProperties = {
     background: '#181818',
     border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: 12,

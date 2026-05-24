@@ -1,4 +1,3 @@
-import React from 'react'
 import { PlatformId } from './types'
 import { PLATFORMS } from './mockData'
 import { Toggle } from '../shared/Toggle'

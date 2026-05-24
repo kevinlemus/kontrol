@@ -1,4 +1,3 @@
-import React from 'react'
 import { Platform, PlatformDraft, PostType, PLATFORM_POST_TYPES } from './types'
 
 interface CardHeroProps {
@@ -108,13 +107,11 @@ export function CardHero({ platform, draft, desktop, onTypeChange }: CardHeroPro
           <span style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 800,
-            fontSize: desktop ? 88 : 52,
+            fontSize: desktop ? 48 : 36,
             lineHeight: 0.9,
             color: '#fff',
             letterSpacing: -2,
             textShadow: '0 2px 16px rgba(0,0,0,0.4)',
-            // Scale down to fit if desktop
-            ...(desktop ? { fontSize: 48 } : { fontSize: 36 }),
           }}>
             {platform.name}
           </span>

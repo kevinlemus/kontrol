@@ -1,4 +1,3 @@
-import React from 'react'
 import { PlatformDraft, Platform, ViewMode, PostType } from './types'
 
 interface PreviewCardProps {
@@ -639,7 +638,7 @@ function GenericPreview({ draft, platform }: { draft: PlatformDraft; platform: P
   )
 }
 
-export function PreviewCard({ draft, platform, selectedPostType: _selectedPostType, viewMode, onViewModeChange, userName }: PreviewCardProps) {
+export function PreviewCard({ draft, platform, selectedPostType: _selectedPostType, viewMode: _viewMode, onViewModeChange: _onViewModeChange, userName }: PreviewCardProps) {
   function renderPreview() {
     switch (platform.id) {
       case 'IG': return <InstagramPreview draft={draft} />

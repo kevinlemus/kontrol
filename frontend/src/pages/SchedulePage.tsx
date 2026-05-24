@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/shared/PageHeader'
 import { useToast } from '../components/shared/Toast'
@@ -514,7 +514,6 @@ function getActiveScheduleProjectId(): string | null {
 
 export function SchedulePage() {
   const navigate = useNavigate()
-  const { showToast } = useToast()
   const [posts, setPosts] = useState<ScheduledPost[]>(INITIAL_POSTS)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [showLegend, setShowLegend] = useState(false)
@@ -721,7 +720,7 @@ export function SchedulePage() {
                       ? `${timingEntry.personalized ? '\u{1F4CA} ' : ''}${timingEntry.label}`
                       : (isToday ? fallbackLabel : `tmrw ${fallbackLabel}`)
                     return (
-                      <React.Fragment key={post.platformId + i}>
+                      <Fragment key={post.platformId + i}>
                         {i > 0 && (
                           <div style={{
                             display: 'flex',
@@ -760,7 +759,7 @@ export function SchedulePage() {
                             {displayLabel}
                           </span>
                         </div>
-                      </React.Fragment>
+                      </Fragment>
                     )
                   })}
                 </div>

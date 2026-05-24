@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ComposeState, PlatformId, PostType } from './types'
 import { MOCK_DRAFTS, PLATFORM_MAP, PLATFORMS } from './mockData'

@@ -1,4 +1,3 @@
-import React from 'react'
 import { PlatformDraft, Platform } from './types'
 import { SubredditSelector } from './SubredditSelector'
 

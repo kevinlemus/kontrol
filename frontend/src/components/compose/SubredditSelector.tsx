@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { redditApi } from '../../api/reddit'
 import type { ApiSubredditMonitor } from '../../api/types'
 

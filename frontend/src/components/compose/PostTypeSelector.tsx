@@ -1,4 +1,3 @@
-import React from 'react'
 import { PlatformId, PostType, PLATFORM_POST_TYPES } from './types'
 
 interface Props {

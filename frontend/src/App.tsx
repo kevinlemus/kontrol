@@ -1,4 +1,3 @@
-import React from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { BottomNav } from './components/shared/BottomNav'
 import { ToastProvider } from './components/shared/Toast'

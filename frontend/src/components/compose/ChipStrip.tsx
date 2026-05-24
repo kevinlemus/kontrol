@@ -1,4 +1,3 @@
-import React from 'react'
 import { PlatformId, PlatformDraft } from './types'
 import { PLATFORMS } from './mockData'
 import { PlatformChip } from './PlatformChip'

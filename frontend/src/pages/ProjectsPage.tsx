@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/shared/PageHeader'
 import { Toggle } from '../components/shared/Toggle'
@@ -1667,15 +1667,15 @@ function useIsNarrow() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-function DEFAULT_PROJECT_FROM_API(ap: { id: string; name: string; whatItIs: string; whoItsFor: string; vibe: string; currentStatus: string; active: boolean }): Project {
+function DEFAULT_PROJECT_FROM_API(ap: { id: string; name: string; whatItIs?: string | null; whoItsFor?: string | null; vibe?: string | null; currentStatus?: string | null; active: boolean }): Project {
   return {
     id: ap.id,
     name: ap.name,
     accent: 'linear-gradient(135deg, #3B82F6, #6366F1)',
-    whatItIs: ap.whatItIs,
-    whoItsFor: ap.whoItsFor,
-    vibe: ap.vibe,
-    currentStatus: ap.currentStatus,
+    whatItIs: ap.whatItIs ?? '',
+    whoItsFor: ap.whoItsFor ?? '',
+    vibe: ap.vibe ?? '',
+    currentStatus: ap.currentStatus ?? '',
     active: ap.active,
     personas: DEFAULT_PERSONAS,
     platforms: { ...DEFAULT_PLATFORMS },

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react'
+﻿import { useState, useRef, useCallback, useEffect } from 'react'
 import { PlatformDraft, Platform, ViewMode, PostType } from './types'
 import { CardHero } from './CardHero'
 import { CardContent } from './CardContent'
@@ -38,7 +38,7 @@ export function ActiveCard({
   onSkip,
   onDiscardBatch,
   desktop,
-  projectName,
+  projectName: _projectName,
   projectId,
   onSubredditChange,
   insights,

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+﻿import { useState, useMemo, Fragment } from 'react'
 import { PlatformId, Platform, PlatformDraft } from './types'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ export function SmartScheduleModal({
               const label = t.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
               const isToday = t.toDateString() === mockNow.toDateString()
               return (
-                <React.Fragment key={entry.platformId}>
+                <Fragment key={entry.platformId}>
                   {i > 0 && (
                     <div style={{ width: 24, height: 1, background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
                   )}
@@ -205,7 +205,7 @@ export function SmartScheduleModal({
                       {isToday ? label : `tmrw ${label}`}
                     </span>
                   </div>
-                </React.Fragment>
+                </Fragment>
               )
             })}
           </div>
