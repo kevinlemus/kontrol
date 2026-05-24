@@ -47,3 +47,26 @@ pnpm-debug.log*
 # PWA generated
 sw.js
 workbox-*.js
+
+# TypeScript build cache
+*.tsbuildinfo
+tsconfig.*.tsbuildinfo
+
+# Vite cache
+.vite/
+
+# Claude Code editor
+.claude/settings.local.json
+.claude/launch.json
+
+# Supabase local
+.supabase/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Test coverage
+coverage/
+.nyc_output/
