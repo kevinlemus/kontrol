@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kontrol.dto.DraftDto;
 import com.kontrol.dto.PerformanceInsightDto;
+import com.kontrol.dto.UserContextDto;
 import com.kontrol.model.Post;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,12 +42,12 @@ public class ClaudeService {
     /** Zero-extras overload — no subreddits, no insights. */
     public Map<String, DraftDto> generatePosts(
             String projectName,
-            String userName,
+            UserContextDto userContext,
             String projectContext,
             List<Post> recentPosts,
             String userInput,
             List<String> platforms) {
-        return generatePosts(projectName, userName, projectContext, recentPosts, userInput, platforms,
+        return generatePosts(projectName, userContext, projectContext, recentPosts, userInput, platforms,
             List.of(), List.of(), List.of(), Map.of());
     }
 
@@ -61,7 +62,7 @@ public class ClaudeService {
      */
     public Map<String, DraftDto> generatePosts(
             String projectName,
-            String userName,
+            UserContextDto userContext,
             String projectContext,
             List<Post> recentPosts,
             String userInput,
@@ -87,37 +88,54 @@ public class ClaudeService {
             return placeholders;
         }
 
-        String systemPrompt = buildSystemPrompt(projectName, userName, projectContext, recentPosts,
+        String name = (userContext != null && userContext.getName() != null) ? userContext.getName() : "the user";
+        String systemPrompt = buildSystemPrompt(projectName, userContext, projectContext, recentPosts,
             eligibleSubreddits, allSubreddits, insights, subredditScores);
         String userPrompt = "Generate posts for platforms: " + String.join(", ", platforms)
-            + "\n\n" + userName + "'s prompt: " + userInput;
+            + "\n\n" + name + "'s prompt: " + userInput;
         String responseText = callClaude(systemPrompt, userPrompt, 4096);
         return parseDrafts(responseText, platforms);
     }
 
-    public String generateRedditComment(String userName, String projectContext, String subreddit,
+    public String generateRedditComment(UserContextDto userContext, String projectContext, String subreddit,
                                         String redditPostTitle, String redditPostBody) {
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("CLAUDE_API_KEY not set — skipping Reddit comment generation");
             return "[Add CLAUDE_API_KEY to .env to enable AI comment suggestions]";
         }
-        String system = "You are " + userName + "'s assistant for the Kontrol social media app. Generate a genuine, helpful Reddit comment "
-            + "that adds value and naturally mentions the project when relevant. Keep it 2-4 sentences. "
-            + "Return ONLY the comment text, no JSON, no explanation.\n\nProject context:\n" + projectContext;
+        String name = (userContext != null && userContext.getName() != null) ? userContext.getName() : "the user";
+        String vp = userContext != null ? userContext.getVoiceProfile() : null;
+        StringBuilder systemSb = new StringBuilder();
+        systemSb.append("You are ").append(name).append("'s assistant for the Kontrol social media app. ");
+        systemSb.append("Generate a genuine, helpful Reddit comment that adds value and naturally mentions the project when relevant. ");
+        systemSb.append("Keep it 2-4 sentences. Return ONLY the comment text, no JSON, no explanation.\n\n");
+        if (vp != null && !vp.isBlank()) {
+            systemSb.append("VOICE & TONE PROFILE (match this exactly):\n").append(vp).append("\n\n");
+        }
+        systemSb.append("Project context:\n").append(projectContext);
         String user = "Subreddit: r/" + subreddit + "\nPost title: " + redditPostTitle
             + "\nPost body: " + redditPostBody + "\n\nGenerate a comment:";
-        return callClaude(system, user, 512);
+        return callClaude(systemSb.toString(), user, 512);
     }
 
-    private String buildSystemPrompt(String projectName, String userName, String projectContext,
+    private String buildSystemPrompt(String projectName, UserContextDto userContext, String projectContext,
                                       List<Post> recentPosts,
                                       List<String> eligibleSubreddits,
                                       List<String> allSubreddits,
                                       List<PerformanceInsightDto> insights,
                                       Map<String, Double> subredditScores) {
+        String name = (userContext != null && userContext.getName() != null) ? userContext.getName() : "the user";
         StringBuilder sb = new StringBuilder();
-        sb.append("You are ").append(userName).append("'s personal social media content generator inside the Kontrol app.\n");
-        sb.append(userName).append(" is a solo creator who uses one authentic voice across all platforms.\n\n");
+        sb.append("You are ").append(name).append("'s personal social media content generator inside the Kontrol app.\n");
+        sb.append(name).append(" is a solo creator who uses one authentic voice across all platforms.\n\n");
+
+        // Voice profile injection
+        String vp = userContext != null ? userContext.getVoiceProfile() : null;
+        if (vp != null && !vp.isBlank()) {
+            sb.append("VOICE & TONE PROFILE (match this exactly — do not sanitize or over-polish):\n");
+            sb.append(vp).append("\n\n");
+        }
+
         sb.append("PROJECT: ").append(projectName).append("\n");
         sb.append(projectContext).append("\n\n");
         if (recentPosts != null && !recentPosts.isEmpty()) {

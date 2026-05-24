@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../components/shared/Toast'
-import { settingsApi } from '../api/settings'
+import { useAuth } from '../contexts/AuthContext'
+import { authApi } from '../api/auth'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -365,127 +366,6 @@ function PlatformRow({
   )
 }
 
-// ─── Change Password Form ─────────────────────────────────────────────────────
-
-function ChangePasswordForm({ onClose }: { onClose: () => void }) {
-  const { showToast } = useToast()
-  const [currentPw, setCurrentPw] = useState('')
-  const [newPw, setNewPw] = useState('')
-  const [confirmPw, setConfirmPw] = useState('')
-  const [error, setError] = useState('')
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 14px',
-    background: 'var(--bg-active)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-body)',
-    fontSize: 14,
-    outline: 'none',
-    marginBottom: 10,
-    boxSizing: 'border-box',
-  }
-
-  const handleSave = () => {
-    if (!newPw || !confirmPw) {
-      setError('Please fill in all fields')
-      return
-    }
-    if (newPw !== confirmPw) {
-      setError('New passwords do not match')
-      return
-    }
-    setError('')
-    localStorage.setItem('kontrol_pw_changed', JSON.stringify({ changedAt: new Date().toISOString() }))
-    showToast('Password updated (mock — connect backend to activate)')
-    onClose()
-  }
-
-  const handleCancel = () => {
-    setCurrentPw('')
-    setNewPw('')
-    setConfirmPw('')
-    setError('')
-    onClose()
-  }
-
-  return (
-    <div style={{
-      marginTop: 14,
-      paddingTop: 14,
-      borderTop: '1px solid rgba(255,255,255,0.07)',
-    }}>
-      <input
-        type="password"
-        placeholder="Current password"
-        value={currentPw}
-        onChange={e => setCurrentPw(e.target.value)}
-        style={inputStyle}
-        autoComplete="current-password"
-      />
-      <input
-        type="password"
-        placeholder="New password"
-        value={newPw}
-        onChange={e => setNewPw(e.target.value)}
-        style={inputStyle}
-        autoComplete="new-password"
-      />
-      <input
-        type="password"
-        placeholder="Confirm new password"
-        value={confirmPw}
-        onChange={e => setConfirmPw(e.target.value)}
-        style={{ ...inputStyle, marginBottom: 0 }}
-        autoComplete="new-password"
-      />
-      {error && (
-        <div style={{
-          fontSize: 12, color: '#EF4444', fontFamily: 'var(--font-body)',
-          marginTop: 8, marginBottom: 4,
-        }}>
-          {error}
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <button
-          onClick={handleSave}
-          style={{
-            padding: '8px 18px',
-            borderRadius: 999,
-            background: 'var(--accent)',
-            color: '#fff',
-            border: 'none',
-            fontFamily: 'var(--font-body)',
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          Save
-        </button>
-        <button
-          onClick={handleCancel}
-          style={{
-            padding: '8px 18px',
-            borderRadius: 999,
-            border: '1px solid rgba(255,255,255,0.12)',
-            background: 'none',
-            color: 'var(--text-muted)',
-            fontFamily: 'var(--font-body)',
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ─── Back Button ──────────────────────────────────────────────────────────────
 
 function BackButton({ onBack }: { onBack: () => void }) {
@@ -544,16 +424,60 @@ function SettingsHeader({ onBack }: { onBack: () => void }) {
 export function SettingsPage() {
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const { user, updateUser } = useAuth()
+
+  // Profile state
+  const [profileName, setProfileName] = useState(user?.name ?? '')
+  const [voiceProfile, setVoiceProfile] = useState(user?.voiceProfile ?? '')
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [currentPw, setCurrentPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [pwError, setPwError] = useState('')
+
+  // Platform/reset state
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [platforms, setPlatforms] = useState<PlatformAccount[]>(INITIAL_PLATFORM_ACCOUNTS)
   const [oauthModal, setOauthModal] = useState<PlatformAccount | null>(null)
-  const [showPasswordForm, setShowPasswordForm] = useState(false)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [userName, setUserName] = useState<string>(settingsApi.getCachedUserName())
 
-  useEffect(() => {
-    settingsApi.getUserSettings().then(s => setUserName(s.userName)).catch(() => {})
-  }, [])
+  const pwInputStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 8,
+    padding: '10px 12px',
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-body)',
+    fontSize: 13,
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+  }
+
+  const handleSaveProfile = async () => {
+    try {
+      await authApi.updateSettings({ name: profileName, voiceProfile })
+      updateUser({ name: profileName, voiceProfile })
+      showToast('Profile saved')
+    } catch {
+      // silently ignore if backend offline
+    }
+  }
+
+  const handleChangePassword = async () => {
+    setPwError('')
+    if (newPw !== confirmPw) { setPwError('Passwords do not match'); return }
+    if (newPw.length < 8) { setPwError('Password must be at least 8 characters'); return }
+    try {
+      const res = await authApi.changePassword({ currentPassword: currentPw, newPassword: newPw })
+      if (res.error) { setPwError(res.error); return }
+      showToast('Password updated')
+      setShowPasswordForm(false)
+      setCurrentPw(''); setNewPw(''); setConfirmPw('')
+    } catch {
+      setPwError('Failed to update password')
+    }
+  }
 
   const handleDisconnect = (key: PlatformKey) => {
     setPlatforms(ps => ps.map(p =>
@@ -576,47 +500,138 @@ export function SettingsPage() {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 48px' }}>
 
-        {/* ── Section 0: Your Name ── */}
-        <div style={{ marginBottom: 36 }}>
-          <SectionHeader
-            title="Your Name"
-            subtitle="Used in Claude prompts and content previews."
-          />
+        {/* ── Section 0: Your Profile ── */}
+        <div style={{ marginBottom: 16 }}>
           <div style={{
-            background: 'var(--bg-card)',
-            borderRadius: 'var(--radius-card)',
-            padding: '0 16px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+            fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+            letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8, paddingLeft: 4,
           }}>
+            Your Profile
+          </div>
+          <div style={{
+            background: 'var(--bg-card)', borderRadius: 12,
+            border: '1px solid rgba(255,255,255,0.06)',
+            overflow: 'hidden',
+          }}>
+            {/* Name row */}
             <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '14px 0',
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '12px 14px',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
             }}>
+              <span style={{
+                fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)',
+                width: 80, flexShrink: 0,
+              }}>
+                Name
+              </span>
               <input
                 type="text"
-                value={userName}
-                onChange={e => setUserName(e.target.value)}
-                onBlur={async () => {
-                  const trimmed = userName.trim()
-                  if (trimmed) {
-                    await settingsApi.updateUserSettings({ userName: trimmed }).catch(() => {})
-                    showToast('Name saved')
-                  }
+                value={profileName}
+                onChange={e => setProfileName(e.target.value)}
+                onBlur={() => handleSaveProfile()}
+                style={{
+                  flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                  color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontSize: 14,
                 }}
                 placeholder="Your name"
+              />
+            </div>
+
+            {/* Voice profile row */}
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{
+                fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', marginBottom: 8,
+              }}>
+                Voice profile
+              </div>
+              <textarea
+                value={voiceProfile}
+                onChange={e => setVoiceProfile(e.target.value)}
+                onBlur={() => handleSaveProfile()}
+                placeholder="Describe your writing style... e.g. Lowercase-heavy, stream of consciousness, DMV cadence. Not trying to sound cool, just does."
+                rows={4}
                 style={{
-                  flex: 1,
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 15,
-                  fontWeight: 600,
+                  width: '100%', background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 8, padding: '10px 12px',
+                  color: 'var(--text-primary)', fontFamily: 'var(--font-body)',
+                  fontSize: 13, lineHeight: 1.5, resize: 'vertical',
+                  outline: 'none', boxSizing: 'border-box',
                 }}
               />
+              <div style={{
+                fontSize: 11, color: 'var(--text-muted)', marginTop: 4, fontFamily: 'var(--font-body)',
+              }}>
+                Sent to Claude with every generation. Make it specific.
+              </div>
+            </div>
+
+            {/* Change password */}
+            <div style={{ padding: '12px 14px' }}>
+              {!showPasswordForm ? (
+                <button
+                  onClick={() => setShowPasswordForm(true)}
+                  style={{
+                    background: 'none', border: 'none', padding: 0,
+                    color: 'var(--text-muted)', fontFamily: 'var(--font-body)',
+                    fontSize: 13, cursor: 'pointer',
+                  }}
+                >
+                  Change password →
+                </button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input
+                    type="password"
+                    value={currentPw}
+                    onChange={e => setCurrentPw(e.target.value)}
+                    placeholder="Current password"
+                    style={pwInputStyle}
+                  />
+                  <input
+                    type="password"
+                    value={newPw}
+                    onChange={e => setNewPw(e.target.value)}
+                    placeholder="New password"
+                    style={pwInputStyle}
+                  />
+                  <input
+                    type="password"
+                    value={confirmPw}
+                    onChange={e => setConfirmPw(e.target.value)}
+                    placeholder="Confirm new password"
+                    style={pwInputStyle}
+                  />
+                  {pwError && (
+                    <div style={{ fontSize: 11, color: 'rgba(239,68,68,0.85)', fontFamily: 'var(--font-body)' }}>
+                      {pwError}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={handleChangePassword}
+                      style={{
+                        background: '#3B82F6', border: 'none', borderRadius: 8,
+                        padding: '8px 16px', color: '#fff',
+                        fontFamily: 'var(--font-body)', fontSize: 13, cursor: 'pointer',
+                      }}
+                    >
+                      Update
+                    </button>
+                    <button
+                      onClick={() => { setShowPasswordForm(false); setPwError('') }}
+                      style={{
+                        background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: 8,
+                        padding: '8px 16px', color: 'var(--text-muted)',
+                        fontFamily: 'var(--font-body)', fontSize: 13, cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -644,44 +659,6 @@ export function SettingsPage() {
                 />
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* ── Section 2: Access ── */}
-        <div style={{ marginBottom: 36 }}>
-          <SectionHeader title="Access" />
-          <div style={{
-            background: 'var(--bg-card)',
-            borderRadius: 'var(--radius-card)',
-            padding: '14px 16px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
-                Change password
-              </span>
-              <button
-                onClick={() => setShowPasswordForm(s => !s)}
-                style={{
-                  padding: '6px 14px', borderRadius: 'var(--radius-button)',
-                  border: '1px solid rgba(255,255,255,0.12)', background: 'none',
-                  color: 'var(--text-secondary)', fontFamily: 'var(--font-body)',
-                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                }}
-              >
-                {showPasswordForm ? 'Cancel' : 'Update →'}
-              </button>
-            </div>
-            <p style={{
-              fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)',
-              lineHeight: 1.5, margin: '8px 0 0',
-            }}>
-              Kontrol is solo use only — password protects local access.
-            </p>
-
-            {showPasswordForm && (
-              <ChangePasswordForm onClose={() => setShowPasswordForm(false)} />
-            )}
           </div>
         </div>
 

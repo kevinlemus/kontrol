@@ -4,6 +4,7 @@ import com.kontrol.dto.DraftDto;
 import com.kontrol.dto.GenerateRequest;
 import com.kontrol.dto.GenerateResponse;
 import com.kontrol.dto.PerformanceInsightDto;
+import com.kontrol.dto.UserContextDto;
 import com.kontrol.model.Post;
 import com.kontrol.model.PostPlatform;
 import com.kontrol.model.SubredditMonitor;
@@ -11,7 +12,6 @@ import com.kontrol.repository.PostPlatformRepository;
 import com.kontrol.repository.PostRepository;
 import com.kontrol.repository.ProjectRepository;
 import com.kontrol.repository.SubredditMonitorRepository;
-import com.kontrol.repository.UserSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,7 +32,7 @@ public class GenerationService {
     private final ClaudeService claudeService;
     private final SubredditMonitorRepository subredditMonitorRepository;
     private final PerformanceService performanceService;
-    private final UserSettingsRepository userSettingsRepository;
+    private final UserSettingsService userSettingsService;
 
     public GenerateResponse generate(GenerateRequest request) {
         UUID projectId = UUID.fromString(request.getProjectId());
@@ -40,9 +40,7 @@ public class GenerationService {
         var project = projectRepository.findById(projectId)
             .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        String userName = userSettingsRepository.findTopByOrderByUpdatedAtDesc()
-            .map(com.kontrol.model.UserSettings::getUserName)
-            .orElse("Creator");
+        UserContextDto userContext = userSettingsService.getUserContext();
 
         List<Post> recentPosts = postRepository.findTop10ByProjectIdOrderByCreatedAtDesc(projectId);
 
@@ -80,7 +78,7 @@ public class GenerationService {
         }
 
         Map<String, DraftDto> drafts = claudeService.generatePosts(
-            project.getName(), userName, context, recentPosts, request.getPrompt(), request.getPlatforms(),
+            project.getName(), userContext, context, recentPosts, request.getPrompt(), request.getPlatforms(),
             eligibleSubreddits, allSubreddits, insights, subredditScores
         );
 

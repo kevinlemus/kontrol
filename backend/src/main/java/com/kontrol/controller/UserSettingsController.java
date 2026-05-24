@@ -1,43 +1,30 @@
 package com.kontrol.controller;
 
 import com.kontrol.dto.UserSettingsDto;
-import com.kontrol.model.UserSettings;
-import com.kontrol.repository.UserSettingsRepository;
+import com.kontrol.service.UserSettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.OffsetDateTime;
-
+/**
+ * Legacy settings endpoint — kept for backward compatibility.
+ * New auth-aware endpoints live at /api/v1/auth/*.
+ */
 @RestController
 @RequestMapping("/api/v1/settings")
 @RequiredArgsConstructor
 public class UserSettingsController {
 
-    private final UserSettingsRepository userSettingsRepository;
+    private final UserSettingsService userSettingsService;
 
     @GetMapping("/user")
     public ResponseEntity<UserSettingsDto> getUserSettings() {
-        return userSettingsRepository.findTopByOrderByUpdatedAtDesc()
-            .map(s -> ResponseEntity.ok(toDto(s)))
-            .orElse(ResponseEntity.ok(UserSettingsDto.builder().userName("Creator").build()));
+        return ResponseEntity.ok(userSettingsService.toDto(userSettingsService.getUser()));
     }
 
     @PutMapping("/user")
     public ResponseEntity<UserSettingsDto> updateUserSettings(@RequestBody UserSettingsDto req) {
-        UserSettings settings = userSettingsRepository.findTopByOrderByUpdatedAtDesc()
-            .orElse(UserSettings.builder().build());
-        settings.setUserName(req.getUserName() != null && !req.getUserName().isBlank()
-            ? req.getUserName() : "Creator");
-        settings.setUpdatedAt(OffsetDateTime.now());
-        UserSettings saved = userSettingsRepository.save(settings);
-        return ResponseEntity.ok(toDto(saved));
-    }
-
-    private UserSettingsDto toDto(UserSettings s) {
-        return UserSettingsDto.builder()
-            .id(s.getId() != null ? s.getId().toString() : null)
-            .userName(s.getUserName())
-            .build();
+        UserSettingsDto updated = userSettingsService.updateSettings(req.getName(), req.getEmail(), req.getVoiceProfile());
+        return ResponseEntity.ok(updated);
     }
 }

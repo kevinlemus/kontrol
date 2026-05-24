@@ -4,10 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kontrol.model.RedditSuggestion;
 import com.kontrol.model.SubredditMonitor;
+import com.kontrol.dto.UserContextDto;
 import com.kontrol.repository.ProjectRepository;
 import com.kontrol.repository.RedditSuggestionRepository;
 import com.kontrol.repository.SubredditMonitorRepository;
-import com.kontrol.repository.UserSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,7 +36,7 @@ public class RedditMonitorJob {
     private final ClaudeService claudeService;
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
-    private final UserSettingsRepository userSettingsRepository;
+    private final UserSettingsService userSettingsService;
 
     @Scheduled(fixedRate = 4 * 60 * 60 * 1000)
     public void runMonitor() {
@@ -81,9 +81,7 @@ public class RedditMonitorJob {
         var project = projectRepo.findById(m.getProjectId()).orElse(null);
         if (project == null) return;
 
-        String userName = userSettingsRepository.findTopByOrderByUpdatedAtDesc()
-            .map(com.kontrol.model.UserSettings::getUserName)
-            .orElse("Creator");
+        UserContextDto userContext = userSettingsService.getUserContext();
 
         String ctx = String.format("Project: %s — %s. Audience: %s. Vibe: %s",
             project.getName(), nvl(project.getWhatItIs()), nvl(project.getWhoItsFor()), nvl(project.getVibe()));
@@ -97,7 +95,7 @@ public class RedditMonitorJob {
             String title = p.path("title").asText();
             String body = p.path("selftext").asText("");
             String url = "https://reddit.com" + p.path("permalink").asText();
-            String comment = claudeService.generateRedditComment(userName, ctx, m.getSubreddit(), title, body);
+            String comment = claudeService.generateRedditComment(userContext, ctx, m.getSubreddit(), title, body);
 
             suggestionRepo.save(RedditSuggestion.builder()
                 .projectId(m.getProjectId())

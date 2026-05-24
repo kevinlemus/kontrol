@@ -2,6 +2,7 @@ package com.kontrol.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -15,8 +16,21 @@ public class UserSettings {
     @Column(columnDefinition = "uuid", updatable = false)
     private UUID id;
 
-    @Column(name = "user_name", nullable = false)
-    private String userName;
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "email")
+    private String email;
+
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
+
+    @Column(name = "voice_profile", columnDefinition = "TEXT")
+    private String voiceProfile;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private OffsetDateTime createdAt;
 
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;

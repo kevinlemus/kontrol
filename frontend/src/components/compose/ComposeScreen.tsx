@@ -13,7 +13,7 @@ import { PlatformSelectSheet } from './PlatformSelectSheet'
 import { useToast } from '../shared/Toast'
 import { generateApi } from '../../api/generate'
 import { performanceApi } from '../../api/performance'
-import { settingsApi } from '../../api/settings'
+import { useAuth } from '../../contexts/AuthContext'
 import type { GenerateResponse, PerformanceInsightDto } from '../../api/types'
 
 const ALL_PLATFORM_IDS: PlatformId[] = ['IG', 'TT', 'LI', 'RD', 'X', 'FB', 'YT', 'ST', 'IT', 'GJ']
@@ -413,6 +413,8 @@ function buildInitialState(): ComposeState {
 export function ComposeScreen() {
   const isDesktop = useComposeLayout()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const userName = user?.name ?? 'Creator'
 
   // projectKey increments whenever the active project changes — forces re-derivation
   const [projectKey, setProjectKey] = useState(0)
@@ -424,11 +426,7 @@ export function ComposeScreen() {
   const [insights, setInsights] = useState<PerformanceInsightDto[] | null>(null)
   const [postPlatformIds, setPostPlatformIds] = useState<Record<string, string>>({})
   const [originalContents, setOriginalContents] = useState<Record<string, string>>({})
-  const [userName, setUserName] = useState<string>(settingsApi.getCachedUserName())
 
-  useEffect(() => {
-    settingsApi.getUserSettings().then(s => setUserName(s.userName)).catch(() => {})
-  }, [])
 
   // Re-derive enabled platforms when projectKey or projectName changes
   const enabledPlatforms = getEnabledPlatforms(state.projectName)
