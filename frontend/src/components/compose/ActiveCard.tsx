@@ -86,22 +86,18 @@ export function ActiveCard({
     }
   }, [discardConfirm])
 
-  const handleEditSaved = useCallback((original: string, edited: string) => {
-    const entry = {
-      platform: draft.platformId,
-      project_id: projectName,
-      original,
-      edited,
-      timestamp: new Date().toISOString(),
-    }
+  const handleEditSaved = useCallback((_original: string, _edited: string) => {
     try {
-      const existing = JSON.parse(localStorage.getItem('kontrol_voice_edits') ?? '[]')
-      existing.push(entry)
-      localStorage.setItem('kontrol_voice_edits', JSON.stringify(existing))
+      const raw = localStorage.getItem('kontrol_voice_edits')
+      const edits: Record<string, number> = (raw && !raw.startsWith('['))
+        ? (JSON.parse(raw) as Record<string, number>)
+        : {}
+      edits[draft.platformId] = (edits[draft.platformId] ?? 0) + 1
+      localStorage.setItem('kontrol_voice_edits', JSON.stringify(edits))
     } catch {}
     setFlash(true)
     setTimeout(() => setFlash(false), 2200)
-  }, [draft.platformId, projectName])
+  }, [draft.platformId])
 
   // Three-dot menu actions
   const handleSaveAsDraft = () => {

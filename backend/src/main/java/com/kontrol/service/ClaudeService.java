@@ -6,6 +6,7 @@ import com.kontrol.dto.DraftDto;
 import com.kontrol.dto.PerformanceInsightDto;
 import com.kontrol.dto.UserContextDto;
 import com.kontrol.model.Post;
+import com.kontrol.model.PostPlatform;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,19 @@ import java.util.Map;
 public class ClaudeService {
 
     private static final String ANTHROPIC_VERSION = "2023-06-01";
+
+    private static final Map<String, String> PLATFORM_BEST_PRACTICES = Map.ofEntries(
+        Map.entry("IG", "Visual-first, casual, authentic. Short sentences. Emojis used naturally not forced. Hashtags at end, 5-10 max. Hook in first line."),
+        Map.entry("TT", "Hook in first 3 words. Conversational, energetic. Short. Call to action. Trending sounds reference optional."),
+        Map.entry("LI", "Professional but human. Tell a story. Insight or lesson. No buzzwords. Paragraph breaks. No hashtag spam."),
+        Map.entry("RD", "Genuine, no sell. Add value first. Mention your thing only if naturally relevant. Match subreddit tone."),
+        Map.entry("X",  "Punchy. One strong idea. Under 280 chars. Opinion or observation. No fluff."),
+        Map.entry("FB", "Conversational, community feel. Question or story. Longer is okay."),
+        Map.entry("YT", "Title-focused. SEO-aware. Description adds context, does not just repeat title."),
+        Map.entry("ST", "Developer talking to players. Honest about what changed and why. Specific details."),
+        Map.entry("IT", "Indie dev voice. Passionate, personal. Show your process."),
+        Map.entry("GJ", "Casual gamer-to-gamer. Fun, direct.")
+    );
 
     // TODO: Add CLAUDE_API_KEY to backend/.env to activate generation
     @Value("${claude.api.key:}")
@@ -39,7 +53,7 @@ public class ClaudeService {
         this.objectMapper = objectMapper;
     }
 
-    /** Zero-extras overload — no subreddits, no insights. */
+    /** Zero-extras overload — no subreddits, no insights, no edit history. */
     public Map<String, DraftDto> generatePosts(
             String projectName,
             UserContextDto userContext,
@@ -48,7 +62,7 @@ public class ClaudeService {
             String userInput,
             List<String> platforms) {
         return generatePosts(projectName, userContext, projectContext, recentPosts, userInput, platforms,
-            List.of(), List.of(), List.of(), Map.of());
+            List.of(), List.of(), List.of(), Map.of(), Map.of());
     }
 
     /**
@@ -59,6 +73,7 @@ public class ClaudeService {
      * @param allSubreddits      Full list for display context (includes cooling-down ones)
      * @param insights           Per-platform performance insights to inject into the system prompt
      * @param subredditScores    Avg performance scores per subreddit to weight Claude's selection
+     * @param editHistoryByPlatform Map of platform ID to its Tier 2 edit history (may be empty)
      */
     public Map<String, DraftDto> generatePosts(
             String projectName,
@@ -70,7 +85,8 @@ public class ClaudeService {
             List<String> eligibleSubreddits,
             List<String> allSubreddits,
             List<PerformanceInsightDto> insights,
-            Map<String, Double> subredditScores) {
+            Map<String, Double> subredditScores,
+            Map<String, List<PostPlatform>> editHistoryByPlatform) {
 
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("CLAUDE_API_KEY not set — returning placeholder drafts. Add to backend/.env to activate.");
@@ -90,7 +106,7 @@ public class ClaudeService {
 
         String name = (userContext != null && userContext.getName() != null) ? userContext.getName() : "the user";
         String systemPrompt = buildSystemPrompt(projectName, userContext, projectContext, recentPosts,
-            eligibleSubreddits, allSubreddits, insights, subredditScores);
+            eligibleSubreddits, allSubreddits, insights, subredditScores, platforms, editHistoryByPlatform);
         String userPrompt = "Generate posts for platforms: " + String.join(", ", platforms)
             + "\n\n" + name + "'s prompt: " + userInput;
         String responseText = callClaude(systemPrompt, userPrompt, 4096);
@@ -104,14 +120,12 @@ public class ClaudeService {
             return "[Add CLAUDE_API_KEY to .env to enable AI comment suggestions]";
         }
         String name = (userContext != null && userContext.getName() != null) ? userContext.getName() : "the user";
-        String vp = userContext != null ? userContext.getVoiceProfile() : null;
         StringBuilder systemSb = new StringBuilder();
-        systemSb.append("You are ").append(name).append("'s assistant for the Kontrol social media app. ");
+        systemSb.append("You are ").append(name).append("'s assistant for the Kontrol social media app.\n\n");
+        systemSb.append("PLATFORM VOICE — RD:\n");
+        systemSb.append(PLATFORM_BEST_PRACTICES.get("RD")).append("\n\n");
         systemSb.append("Generate a genuine, helpful Reddit comment that adds value and naturally mentions the project when relevant. ");
         systemSb.append("Keep it 2-4 sentences. Return ONLY the comment text, no JSON, no explanation.\n\n");
-        if (vp != null && !vp.isBlank()) {
-            systemSb.append("VOICE & TONE PROFILE (match this exactly):\n").append(vp).append("\n\n");
-        }
         systemSb.append("Project context:\n").append(projectContext);
         String user = "Subreddit: r/" + subreddit + "\nPost title: " + redditPostTitle
             + "\nPost body: " + redditPostBody + "\n\nGenerate a comment:";
@@ -123,17 +137,42 @@ public class ClaudeService {
                                       List<String> eligibleSubreddits,
                                       List<String> allSubreddits,
                                       List<PerformanceInsightDto> insights,
-                                      Map<String, Double> subredditScores) {
+                                      Map<String, Double> subredditScores,
+                                      List<String> platforms,
+                                      Map<String, List<PostPlatform>> editHistoryByPlatform) {
         String name = (userContext != null && userContext.getName() != null) ? userContext.getName() : "the user";
         StringBuilder sb = new StringBuilder();
-        sb.append("You are ").append(name).append("'s personal social media content generator inside the Kontrol app.\n");
-        sb.append(name).append(" is a solo creator who uses one authentic voice across all platforms.\n\n");
 
-        // Voice profile injection
-        String vp = userContext != null ? userContext.getVoiceProfile() : null;
-        if (vp != null && !vp.isBlank()) {
-            sb.append("VOICE & TONE PROFILE (match this exactly — do not sanitize or over-polish):\n");
-            sb.append(vp).append("\n\n");
+        // Header — always present
+        sb.append("You are ").append(name).append("'s social media content generator for Kontrol.\n\n");
+
+        // Tier 1 — Platform best practices (one block per requested platform)
+        for (String platform : platforms) {
+            String practices = PLATFORM_BEST_PRACTICES.getOrDefault(platform,
+                "Write engaging, authentic content appropriate for this platform.");
+            sb.append("PLATFORM VOICE — ").append(platform).append(":\n");
+            sb.append(practices).append("\n\n");
+        }
+
+        // Tier 2 — Learned patterns per platform (only when edit history exists)
+        if (editHistoryByPlatform != null) {
+            for (String platform : platforms) {
+                List<PostPlatform> editHistory = editHistoryByPlatform.get(platform);
+                if (editHistory != null && !editHistory.isEmpty()) {
+                    sb.append("LEARNED PATTERNS FOR THIS ACCOUNT ON ").append(platform).append(":\n");
+                    sb.append("Based on past edits, this account writes like this:\n");
+                    for (PostPlatform edit : editHistory) {
+                        String original = edit.getOriginalContent();
+                        String edited = edit.getContent();
+                        if (original != null && edited != null && !original.equals(edited)) {
+                            if (original.length() > 200) original = original.substring(0, 200) + "...";
+                            if (edited.length() > 200) edited = edited.substring(0, 200) + "...";
+                            sb.append("- \"").append(edited).append("\" (changed from: \"").append(original).append("\")\n");
+                        }
+                    }
+                    sb.append("Match this style closely.\n\n");
+                }
+            }
         }
 
         sb.append("PROJECT: ").append(projectName).append("\n");
@@ -150,16 +189,6 @@ public class ClaudeService {
             sb.append("\n");
         }
         sb.append("""
-PLATFORM RULES:
-- IG: visual storytelling, 1-2 relevant hashtags, emoji ok
-- TT: hook in first line, very short, viral energy
-- LI: professional but personal, insight-driven
-- RD: genuine value-add, conversational, no hard sell
-- X: punchy, under 280 chars
-- FB: conversational, community-focused
-- YT: community post or description, SEO-friendly
-- ST/IT/GJ: game update style, feature highlights, community hype
-
 RESPONSE FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
 {
   "IG": { "content": "...", "title": null },
@@ -169,7 +198,7 @@ RESPONSE FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
 Only include the platforms requested. Do not include others.
 """);
 
-        // Performance insights injection
+        // Tier 3 — Performance insights (unchanged)
         if (insights != null && !insights.isEmpty()) {
             List<PerformanceInsightDto> useful = insights.stream()
                 .filter(PerformanceInsightDto::isHasEnoughData).toList();

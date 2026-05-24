@@ -427,6 +427,15 @@ export function ComposeScreen() {
   const [postPlatformIds, setPostPlatformIds] = useState<Record<string, string>>({})
   const [originalContents, setOriginalContents] = useState<Record<string, string>>({})
 
+  // ── Voice learning tip banner ──────────────────────────────────────────────
+  const [showTip, setShowTip] = useState(
+    () => localStorage.getItem('kontrol_compose_tip_shown') !== 'true'
+  )
+  const dismissTip = () => {
+    localStorage.setItem('kontrol_compose_tip_shown', 'true')
+    setShowTip(false)
+  }
+
 
   // Re-derive enabled platforms when projectKey or projectName changes
   const enabledPlatforms = getEnabledPlatforms(state.projectName)
@@ -702,6 +711,58 @@ export function ComposeScreen() {
         }}>
           <ComposeTopBar projectName={state.projectName} onProjectSwitch={handleProjectSwitch} />
 
+          {/* Voice learning tip banner — desktop */}
+          {showTip && (
+            <div style={{
+              background: '#1c1c2e',
+              border: '1px solid #3B82F6',
+              borderRadius: 10,
+              padding: '14px 16px',
+              margin: '0 0 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <div style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: '#fff',
+                    marginBottom: 4,
+                  }}>
+                    Kontrol learns your voice as you go
+                  </div>
+                  <div style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 13,
+                    color: '#aaa',
+                  }}>
+                    Edit any generated post and Kontrol remembers your style
+                    for that platform. The more you use it, the better it gets.
+                  </div>
+                </div>
+                <button
+                  onClick={dismissTip}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#3B82F6',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    padding: 0,
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Input + voice row */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <InputBlock
@@ -830,6 +891,58 @@ export function ComposeScreen() {
         display: 'flex',
         flexDirection: 'column',
       }}>
+        {/* Voice learning tip banner — mobile */}
+        {showTip && (
+          <div style={{
+            background: '#1c1c2e',
+            border: '1px solid #3B82F6',
+            borderRadius: 10,
+            padding: '14px 16px',
+            margin: '10px 14px 0',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <div style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: '#fff',
+                  marginBottom: 4,
+                }}>
+                  Kontrol learns your voice as you go
+                </div>
+                <div style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 13,
+                  color: '#aaa',
+                }}>
+                  Edit any generated post and Kontrol remembers your style
+                  for that platform. The more you use it, the better it gets.
+                </div>
+              </div>
+              <button
+                onClick={dismissTip}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#3B82F6',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  padding: 0,
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Input + voice row */}
         <div>
           <InputBlock

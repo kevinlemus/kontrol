@@ -32,4 +32,18 @@ public interface PostPlatformRepository extends JpaRepository<PostPlatform, UUID
 
     @Query(value = "SELECT pp.* FROM post_platforms pp JOIN posts p ON pp.post_id = p.id WHERE p.project_id = CAST(:projectId AS uuid) AND pp.platform = 'RD' AND pp.status = 'published' AND pp.extra_data IS NOT NULL AND pp.performance_score > 0", nativeQuery = true)
     List<PostPlatform> findPublishedRedditPostsWithScores(@Param("projectId") String projectId);
+
+    @Query(value = "SELECT pp.* FROM post_platforms pp " +
+                   "JOIN posts p ON pp.post_id = p.id " +
+                   "WHERE p.project_id = CAST(:projectId AS uuid) " +
+                   "AND pp.platform = :platform " +
+                   "AND pp.was_overridden = true " +
+                   "AND pp.original_content IS NOT NULL " +
+                   "AND pp.content IS NOT NULL " +
+                   "ORDER BY pp.published_at DESC NULLS LAST, pp.created_at DESC " +
+                   "LIMIT :limit", nativeQuery = true)
+    List<PostPlatform> findRecentEditsForProjectAndPlatform(
+        @Param("projectId") String projectId,
+        @Param("platform") String platform,
+        @Param("limit") int limit);
 }

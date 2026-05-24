@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -77,9 +78,19 @@ public class GenerationService {
             allSubreddits = all.stream().map(SubredditMonitor::getSubreddit).toList();
         }
 
+        // Fetch Tier 2 edit history per platform (up to 5 overridden posts each)
+        Map<String, List<PostPlatform>> editHistoryByPlatform = new HashMap<>();
+        for (String platform : request.getPlatforms()) {
+            List<PostPlatform> history = postPlatformRepository
+                .findRecentEditsForProjectAndPlatform(projectId.toString(), platform, 5);
+            if (!history.isEmpty()) {
+                editHistoryByPlatform.put(platform, history);
+            }
+        }
+
         Map<String, DraftDto> drafts = claudeService.generatePosts(
             project.getName(), userContext, context, recentPosts, request.getPrompt(), request.getPlatforms(),
-            eligibleSubreddits, allSubreddits, insights, subredditScores
+            eligibleSubreddits, allSubreddits, insights, subredditScores, editHistoryByPlatform
         );
 
         Post post = Post.builder()

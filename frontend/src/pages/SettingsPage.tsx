@@ -1,8 +1,33 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../components/shared/Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { authApi } from '../api/auth'
+
+// ─── Voice learning data ───────────────────────────────────────────────────────
+
+const PLATFORM_EMOJI: Record<string, string> = {
+  IG: '📸', TT: '🎵', LI: '💼', RD: '🔴', X: '✕',
+  FB: '👥', YT: '▶️', ST: '🎮', IT: '🎲', GJ: '🎯',
+}
+const PLATFORM_NAME: Record<string, string> = {
+  IG: 'Instagram', TT: 'TikTok', LI: 'LinkedIn', RD: 'Reddit', X: 'X',
+  FB: 'Facebook', YT: 'YouTube', ST: 'Steam', IT: 'itch.io', GJ: 'Game Jolt',
+}
+
+function readVoiceEdits(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem('kontrol_voice_edits')
+    if (!raw) return {}
+    const parsed: unknown = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, number>
+    }
+    return {}
+  } catch {
+    return {}
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -428,8 +453,15 @@ export function SettingsPage() {
 
   // Profile state
   const [profileName, setProfileName] = useState(user?.name ?? '')
-  const [voiceProfile, setVoiceProfile] = useState(user?.voiceProfile ?? '')
   const [showPasswordForm, setShowPasswordForm] = useState(false)
+
+  // Voice edits state — read from localStorage, refresh on focus
+  const [voiceEdits, setVoiceEdits] = useState<Record<string, number>>(readVoiceEdits)
+  useEffect(() => {
+    function onFocus() { setVoiceEdits(readVoiceEdits()) }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
   const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
@@ -456,8 +488,8 @@ export function SettingsPage() {
 
   const handleSaveProfile = async () => {
     try {
-      await authApi.updateSettings({ name: profileName, voiceProfile })
-      updateUser({ name: profileName, voiceProfile })
+      await authApi.updateSettings({ name: profileName })
+      updateUser({ name: profileName })
       showToast('Profile saved')
     } catch {
       // silently ignore if backend offline
@@ -538,35 +570,6 @@ export function SettingsPage() {
               />
             </div>
 
-            {/* Voice profile row */}
-            <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{
-                fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', marginBottom: 8,
-              }}>
-                Voice profile
-              </div>
-              <textarea
-                value={voiceProfile}
-                onChange={e => setVoiceProfile(e.target.value)}
-                onBlur={() => handleSaveProfile()}
-                placeholder="Describe your writing style... e.g. Lowercase-heavy, stream of consciousness, DMV cadence. Not trying to sound cool, just does."
-                rows={4}
-                style={{
-                  width: '100%', background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 8, padding: '10px 12px',
-                  color: 'var(--text-primary)', fontFamily: 'var(--font-body)',
-                  fontSize: 13, lineHeight: 1.5, resize: 'vertical',
-                  outline: 'none', boxSizing: 'border-box',
-                }}
-              />
-              <div style={{
-                fontSize: 11, color: 'var(--text-muted)', marginTop: 4, fontFamily: 'var(--font-body)',
-              }}>
-                Sent to Claude with every generation. Make it specific.
-              </div>
-            </div>
-
             {/* Change password */}
             <div style={{ padding: '12px 14px' }}>
               {!showPasswordForm ? (
@@ -636,7 +639,104 @@ export function SettingsPage() {
           </div>
         </div>
 
-        {/* ── Section 1: Platform Accounts ── */}
+        {/* ── Section 1: Your Voice Profile ── */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{
+            fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+            letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8, paddingLeft: 4,
+          }}>
+            Your Voice Profile
+          </div>
+          <div style={{
+            background: '#181818',
+            borderRadius: 12,
+            border: '1px solid rgba(255,255,255,0.06)',
+            padding: '16px 14px',
+          }}>
+            <div style={{
+              fontSize: 15, fontWeight: 700,
+              color: '#fff',
+              fontFamily: 'var(--font-body)',
+              marginBottom: 10,
+            }}>
+              Your Voice Profile
+            </div>
+            <p style={{
+              fontSize: 14,
+              color: '#888',
+              fontFamily: 'var(--font-body)',
+              lineHeight: 1.5,
+              margin: '0 0 14px',
+            }}>
+              Kontrol builds your voice profile automatically by learning
+              from every edit you make to generated posts.
+            </p>
+
+            {/* Per-platform edit counts */}
+            {(() => {
+              const trackedPlatforms = Object.entries(voiceEdits).filter(([, count]) => count > 0)
+              if (trackedPlatforms.length === 0) {
+                return (
+                  <div style={{
+                    fontSize: 13,
+                    color: '#888',
+                    fontFamily: 'var(--font-body)',
+                    fontStyle: 'italic',
+                  }}>
+                    No edits tracked yet — start by generating and editing your first post.
+                  </div>
+                )
+              }
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {trackedPlatforms.map(([code, count]) => (
+                    <div
+                      key={code}
+                      style={{
+                        background: '#222',
+                        borderRadius: 10,
+                        padding: '10px 14px',
+                        margin: '6px 0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                      }}
+                    >
+                      <span style={{ fontSize: 16 }}>{PLATFORM_EMOJI[code] ?? '🔗'}</span>
+                      <span style={{
+                        flex: 1,
+                        fontSize: 14,
+                        color: '#fff',
+                        fontFamily: 'var(--font-body)',
+                        fontWeight: 500,
+                      }}>
+                        {PLATFORM_NAME[code] ?? code}
+                      </span>
+                      <span style={{
+                        fontSize: 13,
+                        color: '#888',
+                        fontFamily: 'var(--font-mono)',
+                      }}>
+                        {count} {count === 1 ? 'edit' : 'edits'} learned
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+
+            <p style={{
+              fontSize: 12,
+              color: '#888',
+              fontFamily: 'var(--font-body)',
+              margin: '12px 0 0',
+            }}>
+              Connect accounts in Projects to start learning faster.
+            </p>
+          </div>
+        </div>
+
+        {/* ── Section 2: Platform Accounts ── */}
         <div style={{ marginBottom: 36 }}>
           <SectionHeader
             title="Platform Accounts"
