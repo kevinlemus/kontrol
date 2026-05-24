@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/shared/PageHeader'
 import { Toggle } from '../components/shared/Toggle'
@@ -40,6 +40,8 @@ interface Project {
   competitor1?: string
   competitor2?: string
   competitor3?: string
+  projectContextText?: string
+  contextSource?: string
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -161,6 +163,23 @@ function mergePersonasIfAbsent(projects: Project[]): Project[] {
       platforms: updatedPlatforms,
     }
   })
+}
+
+// ─── Upload helper ────────────────────────────────────────────────────────────
+
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+
+async function uploadDocuments(
+  projectId: string,
+  files: File[]
+): Promise<{ characters: number }> {
+  const formData = new FormData()
+  files.forEach(f => formData.append('files', f))
+  const resp = await fetch(
+    `${BASE_URL}/api/v1/projects/${projectId}/upload-context`,
+    { method: 'POST', body: formData }
+  )
+  return resp.json() as Promise<{ characters: number }>
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -291,6 +310,305 @@ function InputField({
   )
 }
 
+// ─── Spinner ──────────────────────────────────────────────────────────────────
+
+function Spinner() {
+  const [angle, setAngle] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setAngle(a => (a + 30) % 360), 80)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <span style={{
+      display: 'inline-block',
+      transform: `rotate(${angle}deg)`,
+      fontSize: 14,
+      lineHeight: 1,
+      color: 'var(--text-muted)',
+    }}>
+      &#8635;
+    </span>
+  )
+}
+
+// ─── ContextUploadZone ────────────────────────────────────────────────────────
+
+interface ContextUploadZoneProps {
+  /** If provided, uploads happen immediately to this ID. If null, files are held in state. */
+  projectId: string | null
+  /** Called when files are selected/changed (for deferred upload in new-project flow). */
+  onFilesChange?: (files: File[]) => void
+  /** Notify parent of successful upload result */
+  onUploadSuccess?: (result: { characters: number }) => void
+}
+
+function ContextUploadZone({ projectId, onFilesChange, onUploadSuccess }: ContextUploadZoneProps) {
+  const [files, setFiles] = useState<File[]>([])
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState<{ characters: number } | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const MAX_FILES = 5
+  const ACCEPT = '.pdf,.docx,.txt,.csv'
+
+  const addFiles = (incoming: FileList | null) => {
+    if (!incoming) return
+    const arr = Array.from(incoming)
+    setFiles(prev => {
+      const merged = [...prev]
+      for (const f of arr) {
+        if (merged.length >= MAX_FILES) break
+        if (!merged.find(x => x.name === f.name && x.size === f.size)) {
+          merged.push(f)
+        }
+      }
+      const next = merged.slice(0, MAX_FILES)
+      onFilesChange?.(next)
+      return next
+    })
+    // Reset status when new files are added
+    setUploadResult(null)
+    setUploadError(null)
+  }
+
+  const removeFile = (index: number) => {
+    setFiles(prev => {
+      const next = prev.filter((_, i) => i !== index)
+      onFilesChange?.(next)
+      return next
+    })
+    setUploadResult(null)
+    setUploadError(null)
+  }
+
+  const handleExtract = async () => {
+    if (!projectId || files.length === 0 || uploading) return
+    setUploading(true)
+    setUploadError(null)
+    try {
+      const result = await uploadDocuments(projectId, files)
+      setUploadResult(result)
+      onUploadSuccess?.(result)
+    } catch {
+      setUploadError('Upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const dropZoneStyle: React.CSSProperties = {
+    border: `1.5px dashed ${dragging ? '#3B82F6' : '#333'}`,
+    borderRadius: 10,
+    padding: 20,
+    background: dragging ? '#0d1a2e' : '#111',
+    textAlign: 'center',
+    cursor: 'pointer',
+    transition: 'border-color 0.15s, background 0.15s',
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Drop zone */}
+      <div
+        style={dropZoneStyle}
+        onClick={() => fileInputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => {
+          e.preventDefault()
+          setDragging(false)
+          addFiles(e.dataTransfer.files)
+        }}
+      >
+        <div style={{ fontSize: 22, marginBottom: 6, lineHeight: 1 }}>&#128196;</div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+          Drag files here or tap to upload
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+          PDF, DOCX, TXT, CSV &middot; Up to 5 files &middot; 10MB each
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPT}
+          multiple
+          style={{ display: 'none' }}
+          onChange={e => { addFiles(e.target.files); e.target.value = '' }}
+        />
+      </div>
+
+      {/* File list */}
+      {files.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {files.map((f, i) => (
+            <div
+              key={`${f.name}-${f.size}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: '#111',
+                borderRadius: 8,
+                padding: '7px 10px',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <span style={{ fontSize: 14, lineHeight: 1, flexShrink: 0 }}>&#128196;</span>
+              <span style={{
+                flex: 1,
+                fontSize: 12,
+                color: 'var(--text-secondary)',
+                fontFamily: 'var(--font-mono)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {f.name}
+              </span>
+              <button
+                onClick={e => { e.stopPropagation(); removeFile(i) }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  padding: '0 4px',
+                  lineHeight: 1,
+                  flexShrink: 0,
+                }}
+                aria-label={`Remove ${f.name}`}
+              >
+                &times;
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Extract button — only shown when there is a projectId (edit mode) */}
+      {projectId && files.length > 0 && !uploadResult && (
+        <button
+          onClick={handleExtract}
+          disabled={uploading}
+          style={{
+            width: '100%',
+            padding: '10px 0',
+            background: uploading ? 'rgba(59,130,246,0.4)' : '#3B82F6',
+            color: '#fff',
+            fontFamily: 'var(--font-body)',
+            fontSize: 13,
+            fontWeight: 700,
+            border: 'none',
+            borderRadius: 10,
+            cursor: uploading ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}
+        >
+          {uploading ? (
+            <>
+              <Spinner />
+              Extracting...
+            </>
+          ) : (
+            `Extract text from ${files.length} file${files.length !== 1 ? 's' : ''}`
+          )}
+        </button>
+      )}
+
+      {/* New-project deferred info — no projectId yet */}
+      {!projectId && files.length > 0 && (
+        <div style={{
+          fontSize: 11,
+          color: 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+          padding: '6px 10px',
+          background: 'rgba(59,130,246,0.08)',
+          borderRadius: 8,
+          border: '1px solid rgba(59,130,246,0.18)',
+        }}>
+          {files.length} file{files.length !== 1 ? 's' : ''} queued &mdash; will be extracted after project is created
+        </div>
+      )}
+
+      {/* Upload result */}
+      {uploadResult && (
+        <div style={{
+          fontSize: 12,
+          color: '#1ED760',
+          fontFamily: 'var(--font-mono)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '6px 10px',
+          background: 'rgba(30,215,96,0.08)',
+          borderRadius: 8,
+          border: '1px solid rgba(30,215,96,0.2)',
+        }}>
+          <span>&#10003;</span>
+          Context loaded &mdash; {uploadResult.characters.toLocaleString()} characters extracted
+        </div>
+      )}
+
+      {/* Upload error */}
+      {uploadError && (
+        <div style={{
+          fontSize: 12,
+          color: '#EF4444',
+          fontFamily: 'var(--font-mono)',
+          padding: '6px 10px',
+          background: 'rgba(239,68,68,0.08)',
+          borderRadius: 8,
+          border: '1px solid rgba(239,68,68,0.2)',
+        }}>
+          {uploadError}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Context source chip ──────────────────────────────────────────────────────
+
+function ContextSourceChip({ source }: { source: string }) {
+  const labelMap: Record<string, string> = {
+    url: 'Source: URL',
+    document: 'Source: Documents',
+    manual: 'Source: Manual',
+    mixed: 'Source: Mixed',
+  }
+  const label = labelMap[source] ?? `Source: ${source}`
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: '2px 9px',
+      borderRadius: 999,
+      background: 'rgba(59,130,246,0.12)',
+      border: '1px solid rgba(59,130,246,0.25)',
+      color: '#3B82F6',
+      fontSize: 10,
+      fontFamily: 'var(--font-mono)',
+      fontWeight: 600,
+      letterSpacing: 0.3,
+    }}>
+      {label}
+    </span>
+  )
+}
+
+// ─── Section divider ──────────────────────────────────────────────────────────
+
+function SectionDivider() {
+  return <div style={{ height: 1, background: '#222', margin: '4px 0' }} />
+}
+
 // ─── Edit Panel ───────────────────────────────────────────────────────────────
 
 interface EditPanelProps {
@@ -354,8 +672,25 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
     outline: 'none',
   }
 
+  const inputBase: React.CSSProperties = {
+    width: '100%',
+    background: 'var(--bg-raised)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    padding: '10px 12px',
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-body)',
+    fontSize: 14,
+    outline: 'none',
+    resize: 'none' as const,
+    boxSizing: 'border-box' as const,
+  }
+
   const personas = form.personas ?? []
   const enabledPlatforms = ALL_PLATFORM_KEYS.filter(pk => form.platforms[pk]?.enabled)
+
+  // Derive contextSource from form state for display
+  const displaySource = form.contextSource
 
   return (
     <div style={{
@@ -405,6 +740,87 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
               }}
             />
           ))}
+        </div>
+      </div>
+
+      {/* ── Project Context section ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Section heading */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{
+            fontSize: 11,
+            color: '#555',
+            fontFamily: 'var(--font-mono)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+          }}>
+            Project Context
+          </span>
+          {displaySource && <ContextSourceChip source={displaySource} />}
+        </div>
+
+        {/* Method 1 label */}
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: 0.3 }}>
+          Method 1 — Website URL is set during project creation
+        </div>
+
+        <SectionDivider />
+
+        {/* Method 2 — Upload documents */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Or upload documents
+            </label>
+          </div>
+          <ContextUploadZone
+            projectId={project.id}
+            onUploadSuccess={result => {
+              setForm(f => ({
+                ...f,
+                contextSource: f.contextSource && f.contextSource !== 'url'
+                  ? 'mixed'
+                  : f.contextSource === 'url' ? 'mixed' : 'document',
+              }))
+              // surfacing result — ContextUploadZone handles its own display
+              void result
+            }}
+          />
+        </div>
+
+        <SectionDivider />
+
+        {/* Method 3 — Paste context */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Or paste context directly
+            </label>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+              Brand guidelines, product description, mission statement &mdash; anything Claude should know
+            </span>
+          </div>
+          <textarea
+            rows={6}
+            value={form.projectContextText ?? ''}
+            onChange={e => {
+              setField('projectContextText', e.target.value)
+              if (e.target.value.trim()) {
+                setForm(f => ({
+                  ...f,
+                  contextSource: f.contextSource === 'url' || f.contextSource === 'document' || f.contextSource === 'mixed'
+                    ? 'mixed'
+                    : 'manual',
+                }))
+              }
+            }}
+            placeholder="Paste your brand guide, describe your product, add messaging guidelines..."
+            style={{
+              ...inputBase,
+              minHeight: 120,
+              resize: 'vertical',
+            }}
+          />
         </div>
       </div>
 
@@ -698,29 +1114,8 @@ function ProjectCard({
 // ─── New Project Form ─────────────────────────────────────────────────────────
 
 interface NewProjectFormProps {
-  onCreate: (p: Project) => void
+  onCreate: (p: Project, uploadFiles: File[]) => void
   onCancel: () => void
-}
-
-// ─── Spinner ──────────────────────────────────────────────────────────────────
-
-function Spinner() {
-  const [angle, setAngle] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setAngle(a => (a + 30) % 360), 80)
-    return () => clearInterval(id)
-  }, [])
-  return (
-    <span style={{
-      display: 'inline-block',
-      transform: `rotate(${angle}deg)`,
-      fontSize: 14,
-      lineHeight: 1,
-      color: 'var(--text-muted)',
-    }}>
-      &#8635;
-    </span>
-  )
 }
 
 function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
@@ -738,6 +1133,25 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
   const [aiSuggested, setAiSuggested] = useState<Set<string>>(new Set())
+
+  // Context state
+  const [projectContextText, setProjectContextText] = useState('')
+  const [contextSource, setContextSource] = useState<string>('')
+  const [uploadFiles, setUploadFiles] = useState<File[]>([])
+
+  // Derive contextSource based on which inputs are populated
+  const computeContextSource = (
+    hasUrl: boolean,
+    hasFiles: boolean,
+    hasText: boolean
+  ): string => {
+    const count = [hasUrl, hasFiles, hasText].filter(Boolean).length
+    if (count === 0) return ''
+    if (count > 1) return 'mixed'
+    if (hasUrl) return 'url'
+    if (hasFiles) return 'document'
+    return 'manual'
+  }
 
   const handleAnalyze = async () => {
     if (!websiteUrl.trim() || analyzing) return
@@ -761,6 +1175,7 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
       }
 
       setAiSuggested(suggested)
+      setContextSource(computeContextSource(true, uploadFiles.length > 0, projectContextText.trim().length > 0))
     } catch {
       // Silently ignore — backend may be offline
     } finally {
@@ -774,6 +1189,16 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
       next.delete(field)
       return next
     })
+  }
+
+  const handleFilesChange = (files: File[]) => {
+    setUploadFiles(files)
+    setContextSource(computeContextSource(!!websiteUrl.trim(), files.length > 0, projectContextText.trim().length > 0))
+  }
+
+  const handleContextTextChange = (val: string) => {
+    setProjectContextText(val)
+    setContextSource(computeContextSource(!!websiteUrl.trim(), uploadFiles.length > 0, val.trim().length > 0))
   }
 
   const handleCreate = () => {
@@ -793,8 +1218,10 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
       competitor1: competitor1.trim() || undefined,
       competitor2: competitor2.trim() || undefined,
       competitor3: competitor3.trim() || undefined,
+      projectContextText: projectContextText.trim() || undefined,
+      contextSource: contextSource || undefined,
     }
-    onCreate(newProject)
+    onCreate(newProject, uploadFiles)
   }
 
   const AiLabel = ({ field }: { field: string }) =>
@@ -837,60 +1264,123 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-        {/* ── URL analysis section ── */}
+        {/* ── PROJECT CONTEXT section ── */}
         <div style={{
           background: 'var(--bg-raised)',
           borderRadius: 10,
           padding: '12px 14px',
           border: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
         }}>
+          {/* Section heading */}
           <div style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: 'var(--text-secondary)',
-            fontFamily: 'var(--font-body)',
-            marginBottom: 10,
+            fontSize: 11,
+            color: '#555',
+            fontFamily: 'var(--font-mono)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
           }}>
-            Learn from a website{' '}
-            <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
+            Project Context
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="url"
-              value={websiteUrl}
-              onChange={e => setWebsiteUrl(e.target.value)}
-              placeholder="Paste your website URL..."
-              onKeyDown={e => { if (e.key === 'Enter') handleAnalyze() }}
+
+          {/* Method 1 — Website URL */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: 0.3 }}>
+              Method 1 &mdash; Website URL
+            </div>
+            <div style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              fontFamily: 'var(--font-body)',
+            }}>
+              Learn from a website{' '}
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="url"
+                value={websiteUrl}
+                onChange={e => setWebsiteUrl(e.target.value)}
+                placeholder="Paste your website URL..."
+                onKeyDown={e => { if (e.key === 'Enter') handleAnalyze() }}
+                style={{
+                  ...inputBase,
+                  flex: 1,
+                  fontSize: 13,
+                  padding: '9px 11px',
+                }}
+              />
+              <button
+                onClick={handleAnalyze}
+                disabled={analyzing || !websiteUrl.trim()}
+                style={{
+                  flexShrink: 0,
+                  padding: '9px 14px',
+                  background: analyzing || !websiteUrl.trim() ? 'rgba(59,130,246,0.3)' : '#3B82F6',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: '#fff',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: analyzing || !websiteUrl.trim() ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {analyzing && <Spinner />}
+                {analyzing ? 'Analyzing...' : 'Analyze'}
+              </button>
+            </div>
+          </div>
+
+          <SectionDivider />
+
+          {/* Method 2 — Upload documents */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: 0.3 }}>
+              Method 2 &mdash; Upload documents
+            </div>
+            <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Or upload documents
+            </label>
+            <ContextUploadZone
+              projectId={null}
+              onFilesChange={handleFilesChange}
+            />
+          </div>
+
+          <SectionDivider />
+
+          {/* Method 3 — Paste text */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: 0.3 }}>
+              Method 3 &mdash; Paste text / brand guide
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Or paste context directly
+              </label>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+                Brand guidelines, product description, mission statement &mdash; anything Claude should know
+              </span>
+            </div>
+            <textarea
+              rows={6}
+              value={projectContextText}
+              onChange={e => handleContextTextChange(e.target.value)}
+              placeholder="Paste your brand guide, describe your product, add messaging guidelines..."
               style={{
                 ...inputBase,
-                flex: 1,
-                fontSize: 13,
-                padding: '9px 11px',
+                minHeight: 120,
+                resize: 'vertical',
               }}
             />
-            <button
-              onClick={handleAnalyze}
-              disabled={analyzing || !websiteUrl.trim()}
-              style={{
-                flexShrink: 0,
-                padding: '9px 14px',
-                background: analyzing || !websiteUrl.trim() ? 'rgba(59,130,246,0.3)' : '#3B82F6',
-                border: 'none',
-                borderRadius: 10,
-                color: '#fff',
-                fontFamily: 'var(--font-body)',
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: analyzing || !websiteUrl.trim() ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {analyzing && <Spinner />}
-              {analyzing ? 'Analyzing...' : 'Analyze'}
-            </button>
           </div>
         </div>
 
@@ -1144,7 +1634,7 @@ export function ProjectsPage() {
     }).catch(() => {})
   }, [])
 
-  const handleCreate = useCallback((newProject: Project) => {
+  const handleCreate = useCallback((newProject: Project, pendingFiles: File[]) => {
     // Try to create via API and use the returned ID
     projectsApi.create({
       name: newProject.name,
@@ -1152,8 +1642,17 @@ export function ProjectsPage() {
       whoItsFor: newProject.whoItsFor,
       vibe: newProject.vibe,
       currentStatus: newProject.currentStatus,
-    }).then(created => {
-      setProjects(ps => [...ps, { ...newProject, id: created.id }])
+    }).then(async created => {
+      const projectWithId = { ...newProject, id: created.id }
+      setProjects(ps => [...ps, projectWithId])
+      // Upload queued files now that we have a real project ID
+      if (pendingFiles.length > 0) {
+        try {
+          await uploadDocuments(created.id, pendingFiles)
+        } catch {
+          // Non-fatal — context upload failure should not block project creation
+        }
+      }
     }).catch(() => {
       // Fall back to local ID
       setProjects(ps => [...ps, newProject])
@@ -1237,4 +1736,4 @@ export function ProjectsPage() {
   )
 }
 
-// FRONTEND-AGENT: ProjectsPage complete (Task D + Task E wired)
+// FRONTEND-AGENT: ProjectsPage complete (context upload + free-text context)

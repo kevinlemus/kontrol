@@ -22,4 +22,6 @@ public class ProjectContextDto {
     private String competitor1;
     private String competitor2;
     private String competitor3;
+    private String projectContextText;
+    private String contextSource;
 }

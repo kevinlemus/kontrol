@@ -56,6 +56,8 @@ public class GenerationService {
             .competitor1(project.getCompetitor1())
             .competitor2(project.getCompetitor2())
             .competitor3(project.getCompetitor3())
+            .projectContextText(project.getProjectContextText())
+            .contextSource(project.getContextSource())
             .build();
 
         // Fetch performance insights per platform

@@ -15,4 +15,6 @@ public class CreateProjectRequest {
     private String competitor2;
     private String competitor3;
     private String industry;
+    private String projectContextText;
+    private String contextSource;
 }

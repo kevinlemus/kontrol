@@ -51,6 +51,12 @@ public class Project {
     @Column(name = "industry")
     private String industry;
 
+    @Column(name = "project_context_text", columnDefinition = "TEXT")
+    private String projectContextText;
+
+    @Column(name = "context_source")
+    private String contextSource;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

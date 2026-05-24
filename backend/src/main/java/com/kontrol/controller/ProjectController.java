@@ -4,12 +4,17 @@ import com.kontrol.dto.CreateProjectRequest;
 import com.kontrol.dto.ProjectDto;
 import com.kontrol.model.Project;
 import com.kontrol.repository.ProjectRepository;
+import com.kontrol.service.DocumentExtractorService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 // BACKEND-AGENT: GET /api/v1/projects complete
@@ -18,9 +23,11 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/projects")
 @RequiredArgsConstructor
+@Slf4j
 public class ProjectController {
 
     private final ProjectRepository projectRepository;
+    private final DocumentExtractorService documentExtractorService;
 
     @GetMapping
     public ResponseEntity<List<ProjectDto>> listProjects() {
@@ -42,7 +49,10 @@ public class ProjectController {
             .whoItsFor(req.getWhoItsFor()).vibe(req.getVibe())
             .currentStatus(req.getCurrentStatus()).active(false)
             .competitor1(req.getCompetitor1()).competitor2(req.getCompetitor2())
-            .competitor3(req.getCompetitor3()).industry(req.getIndustry()).build();
+            .competitor3(req.getCompetitor3()).industry(req.getIndustry())
+            .projectContextText(req.getProjectContextText())
+            .contextSource(req.getContextSource())
+            .build();
         return ResponseEntity.status(201).body(toDto(projectRepository.save(p)));
     }
 
@@ -55,6 +65,8 @@ public class ProjectController {
             p.setCurrentStatus(req.getCurrentStatus());
             p.setCompetitor1(req.getCompetitor1()); p.setCompetitor2(req.getCompetitor2());
             p.setCompetitor3(req.getCompetitor3()); p.setIndustry(req.getIndustry());
+            p.setProjectContextText(req.getProjectContextText());
+            p.setContextSource(req.getContextSource());
             return ResponseEntity.ok(toDto(projectRepository.save(p)));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -74,6 +86,62 @@ public class ProjectController {
         return ResponseEntity.noContent().build();
     }
 
+    // POST /api/v1/projects/{projectId}/upload-context
+    // Content-Type: multipart/form-data
+    // Accepts up to 5 files, max 10MB each
+    // Extracts text, appends to project.projectContextText, saves
+    @PostMapping(value = "/{projectId}/upload-context", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadContext(
+            @PathVariable UUID projectId,
+            @RequestParam("files") List<MultipartFile> files) {
+
+        return projectRepository.findById(projectId)
+                .map(project -> {
+                    if (files.size() > 5) {
+                        return ResponseEntity.badRequest()
+                                .body(Map.of("error", "Maximum 5 files allowed"));
+                    }
+
+                    StringBuilder extracted = new StringBuilder();
+                    for (MultipartFile file : files) {
+                        if (file.getSize() > 10 * 1024 * 1024) {
+                            log.warn("File {} exceeds 10MB, skipping", file.getOriginalFilename());
+                            continue;
+                        }
+                        String text = documentExtractorService.extractText(file);
+                        if (!text.isBlank()) {
+                            extracted.append("\n--- ").append(file.getOriginalFilename()).append(" ---\n");
+                            extracted.append(text.trim()).append("\n");
+                        }
+                    }
+
+                    if (extracted.length() > 0) {
+                        String existing = project.getProjectContextText();
+                        String newContext = (existing != null && !existing.isBlank())
+                                ? existing + "\n" + extracted
+                                : extracted.toString();
+                        project.setProjectContextText(newContext);
+
+                        // Track context source
+                        String currentSource = project.getContextSource();
+                        if (currentSource == null) {
+                            project.setContextSource("document");
+                        } else if (!currentSource.contains("document")) {
+                            project.setContextSource("mixed");
+                        }
+
+                        projectRepository.save(project);
+                    }
+
+                    return ResponseEntity.ok(Map.of(
+                            "extracted", extracted.length() > 0,
+                            "characters", extracted.length(),
+                            "message", "Context extracted from " + files.size() + " file(s)"
+                    ));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     private ProjectDto toDto(Project p) {
         return ProjectDto.builder()
             .id(p.getId().toString()).name(p.getName())
@@ -81,6 +149,9 @@ public class ProjectController {
             .vibe(p.getVibe()).currentStatus(p.getCurrentStatus())
             .active(p.isActive())
             .competitor1(p.getCompetitor1()).competitor2(p.getCompetitor2())
-            .competitor3(p.getCompetitor3()).industry(p.getIndustry()).build();
+            .competitor3(p.getCompetitor3()).industry(p.getIndustry())
+            .projectContextText(p.getProjectContextText())
+            .contextSource(p.getContextSource())
+            .build();
     }
 }

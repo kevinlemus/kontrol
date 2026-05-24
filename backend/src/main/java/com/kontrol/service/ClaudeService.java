@@ -24,17 +24,12 @@ public class ClaudeService {
 
     private static final String ANTHROPIC_VERSION = "2023-06-01";
 
-    private static final Map<String, String> PLATFORM_BEST_PRACTICES = Map.ofEntries(
-        Map.entry("IG", "Visual-first, casual, authentic. Short sentences. Emojis used naturally not forced. Hashtags at end, 5-10 max. Hook in first line."),
-        Map.entry("TT", "Hook in first 3 words. Conversational, energetic. Short. Call to action. Trending sounds reference optional."),
-        Map.entry("LI", "Professional but human. Tell a story. Insight or lesson. No buzzwords. Paragraph breaks. No hashtag spam."),
-        Map.entry("RD", "Genuine, no sell. Add value first. Mention your thing only if naturally relevant. Match subreddit tone."),
-        Map.entry("X",  "Punchy. One strong idea. Under 280 chars. Opinion or observation. No fluff."),
-        Map.entry("FB", "Conversational, community feel. Question or story. Longer is okay."),
-        Map.entry("YT", "Title-focused. SEO-aware. Description adds context, does not just repeat title."),
-        Map.entry("ST", "Developer talking to players. Honest about what changed and why. Specific details."),
-        Map.entry("IT", "Indie dev voice. Passionate, personal. Show your process."),
-        Map.entry("GJ", "Casual gamer-to-gamer. Fun, direct.")
+    private static final Map<String, String> PLATFORM_DISPLAY_NAMES = Map.ofEntries(
+        Map.entry("IG", "Instagram"), Map.entry("TT", "TikTok"),
+        Map.entry("LI", "LinkedIn"), Map.entry("RD", "Reddit"),
+        Map.entry("X", "X (Twitter)"), Map.entry("FB", "Facebook"),
+        Map.entry("YT", "YouTube"), Map.entry("ST", "Steam"),
+        Map.entry("IT", "itch.io"), Map.entry("GJ", "Game Jolt")
     );
 
     // TODO: Add CLAUDE_API_KEY to backend/.env to activate generation
@@ -165,8 +160,10 @@ public class ClaudeService {
         String name = (userContext != null && userContext.getName() != null) ? userContext.getName() : "the user";
         StringBuilder systemSb = new StringBuilder();
         systemSb.append("You are ").append(name).append("'s assistant for the Kontrol social media app.\n\n");
-        systemSb.append("PLATFORM VOICE — RD:\n");
-        systemSb.append(PLATFORM_BEST_PRACTICES.get("RD")).append("\n\n");
+        systemSb.append("PLATFORM CONTEXT: You are generating a comment for Reddit. ")
+                .append("Apply your knowledge of what content strategies, formats, tone, and ")
+                .append("posting patterns perform best on Reddit for this type of content and audience. ")
+                .append("Consider platform culture, algorithm preferences, and audience expectations.\n\n");
         systemSb.append("Generate a genuine, helpful Reddit comment that adds value and naturally mentions the project when relevant. ");
         systemSb.append("Keep it 2-4 sentences. Return ONLY the comment text, no JSON, no explanation.\n\n");
         systemSb.append("Project context:\n").append(projectContext);
@@ -208,7 +205,10 @@ public class ClaudeService {
         if (comp3 != null && !comp3.isBlank()) competitors.add(comp3);
         boolean hasCompetitors = !competitors.isEmpty();
 
-        if (!hasIndustry && !hasCompetitors) {
+        String projectContextText = project.getProjectContextText();
+        boolean hasDocContext = projectContextText != null && !projectContextText.isBlank();
+
+        if (!hasIndustry && !hasCompetitors && !hasDocContext) {
             return base;
         }
 
@@ -229,6 +229,19 @@ public class ClaudeService {
               .append("this brand as the better alternative without directly attacking ")
               .append("competitors.\n\n");
         }
+
+        // Tier 5 — Project documentation
+        if (hasDocContext) {
+            String ctx = projectContextText.length() > 4000
+                ? projectContextText.substring(0, 4000) + "..."
+                : projectContextText;
+            sb.append("PROJECT DOCUMENTATION:\n")
+              .append("The following is context provided by the user about this project. ")
+              .append("Use it to inform tone, messaging, and content decisions:\n\n")
+              .append(ctx)
+              .append("\n\n");
+        }
+
         return sb.toString();
     }
 
@@ -248,12 +261,19 @@ public class ClaudeService {
         // Header — always present
         sb.append("You are ").append(name).append("'s social media content generator for Kontrol.\n\n");
 
-        // Tier 1 — Platform best practices (one block per requested platform)
+        // Tier 1 — Dynamic platform context (one block per requested platform)
         for (String platform : platforms) {
-            String practices = PLATFORM_BEST_PRACTICES.getOrDefault(platform,
-                "Write engaging, authentic content appropriate for this platform.");
-            sb.append("PLATFORM VOICE — ").append(platform).append(":\n");
-            sb.append(practices).append("\n\n");
+            String platformName = PLATFORM_DISPLAY_NAMES.getOrDefault(platform, platform);
+            String postTypeLabel = "post";
+            sb.append("PLATFORM CONTEXT: You are generating a ")
+              .append(postTypeLabel)
+              .append(" for ")
+              .append(platformName)
+              .append(". Apply your knowledge of what content strategies, formats, tone, and ")
+              .append("posting patterns perform best on ")
+              .append(platformName)
+              .append(" for this type of content and audience. Consider platform culture, ")
+              .append("algorithm preferences, and audience expectations.\n\n");
         }
 
         // Tier 2 — Learned patterns per platform (only when edit history exists)
