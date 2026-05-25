@@ -1760,7 +1760,7 @@ export function ProjectsPage() {
         }
       />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 32px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px calc(72px + env(safe-area-inset-bottom))' }}>
         {showNewForm && (
           <NewProjectForm
             onCreate={handleCreate}

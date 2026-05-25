@@ -2,7 +2,9 @@ package com.kontrol.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kontrol.model.GlobalPlatformAccount;
 import com.kontrol.model.PlatformConfig;
+import com.kontrol.repository.GlobalPlatformAccountRepository;
 import com.kontrol.repository.PlatformConfigRepository;
 import com.kontrol.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,10 +28,11 @@ import java.util.UUID;
  *
  * FLOW:
  *   1. Frontend redirects user to GET /api/v1/oauth/{platform}/authorize?project_id={uuid}
+ *      (project_id is optional — omit to connect a global account)
  *   2. This controller builds the platform OAuth URL and redirects the browser there
  *   3. Platform redirects back to GET /api/v1/oauth/{platform}/callback?code=...&state=...
  *   4. This controller exchanges the code for a token
- *   5. Token saved to platform_configs table for the given project
+ *   5. Token saved to global_platform_accounts (if no project_id) or platform_configs
  *   6. Browser redirected to {frontendUrl}/settings?connected={platform}
  *
  * TO ACTIVATE: Add credentials for each platform to backend/.env (see comments per endpoint)
@@ -41,6 +44,7 @@ import java.util.UUID;
 public class OAuthController {
 
     private final PlatformConfigRepository platformConfigRepository;
+    private final GlobalPlatformAccountRepository globalPlatformAccountRepository;
     private final ProjectRepository projectRepository;
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
@@ -58,7 +62,8 @@ public class OAuthController {
     @Value("${meta.redirect-uri:http://localhost:8080/api/v1/oauth/instagram/callback}") private String metaRedirectUri;
 
     @GetMapping("/instagram/authorize")
-    public ResponseEntity<Void> instagramAuthorize(@RequestParam("project_id") String projectId) {
+    public ResponseEntity<Void> instagramAuthorize(
+            @RequestParam(value = "project_id", required = false) String projectId) {
         // OAUTH SETUP REQUIRED:
         // 1. Create Meta app at https://developers.facebook.com/apps/
         // 2. Set redirect URI to: http://localhost:8080/api/v1/oauth/instagram/callback
@@ -82,7 +87,7 @@ public class OAuthController {
         // OAUTH SETUP REQUIRED: add META_APP_ID + META_APP_SECRET to .env
         if (metaAppId.isBlank()) return credentialsMissing("META_APP_ID");
         try {
-            String projectId = decodeState(state);
+            String projectIdOrGlobal = decodeState(state);
             // Exchange code for short-lived token
             String tokenResp = webClientBuilder.build().get()
                 .uri("https://graph.facebook.com/v18.0/oauth/access_token"
@@ -105,8 +110,15 @@ public class OAuthController {
             JsonNode longLived = objectMapper.readTree(longLivedResp);
             String finalToken = longLived.path("access_token").asText(accessToken);
 
-            saveToken(UUID.fromString(projectId), "IG", finalToken, null, null);
-            log.info("Instagram OAuth complete for project {}", projectId);
+            // Fetch Facebook name for display as account handle
+            String meResp = webClientBuilder.build().get()
+                .uri("https://graph.facebook.com/v18.0/me?fields=id,name&access_token=" + finalToken)
+                .retrieve().bodyToMono(String.class).block();
+            JsonNode me = objectMapper.readTree(meResp);
+            String fbName = me.path("name").asText(null);
+
+            saveToken(projectIdOrGlobal, "IG", finalToken, null, fbName);
+            log.info("Instagram OAuth complete for {}", projectIdOrGlobal);
             return redirectToSettings("instagram");
         } catch (Exception e) {
             log.error("Instagram OAuth callback error: {}", e.getMessage(), e);
@@ -119,7 +131,8 @@ public class OAuthController {
     @Value("${meta.fb-redirect-uri:http://localhost:8080/api/v1/oauth/facebook/callback}") private String fbRedirectUri;
 
     @GetMapping("/facebook/authorize")
-    public ResponseEntity<Void> facebookAuthorize(@RequestParam("project_id") String projectId) {
+    public ResponseEntity<Void> facebookAuthorize(
+            @RequestParam(value = "project_id", required = false) String projectId) {
         // OAUTH SETUP REQUIRED:
         // 1. Same Meta app as Instagram — https://developers.facebook.com/apps/
         // 2. Set redirect URI to: http://localhost:8080/api/v1/oauth/facebook/callback
@@ -143,7 +156,7 @@ public class OAuthController {
         // OAUTH SETUP REQUIRED: add META_APP_ID + META_APP_SECRET to .env
         if (metaAppId.isBlank()) return credentialsMissing("META_APP_ID");
         try {
-            String projectId = decodeState(state);
+            String projectIdOrGlobal = decodeState(state);
             String tokenResp = webClientBuilder.build().get()
                 .uri("https://graph.facebook.com/v18.0/oauth/access_token"
                     + "?client_id=" + metaAppId
@@ -153,8 +166,16 @@ public class OAuthController {
                 .retrieve().bodyToMono(String.class).block();
             JsonNode json = objectMapper.readTree(tokenResp);
             String token = json.path("access_token").asText();
-            saveToken(UUID.fromString(projectId), "FB", token, null, null);
-            log.info("Facebook OAuth complete for project {}", projectId);
+
+            // Fetch Facebook name for display as account handle
+            String meResp = webClientBuilder.build().get()
+                .uri("https://graph.facebook.com/v18.0/me?fields=id,name&access_token=" + token)
+                .retrieve().bodyToMono(String.class).block();
+            JsonNode me = objectMapper.readTree(meResp);
+            String fbName = me.path("name").asText(null);
+
+            saveToken(projectIdOrGlobal, "FB", token, null, fbName);
+            log.info("Facebook OAuth complete for {}", projectIdOrGlobal);
             return redirectToSettings("facebook");
         } catch (Exception e) {
             log.error("Facebook OAuth callback error: {}", e.getMessage(), e);
@@ -172,7 +193,8 @@ public class OAuthController {
     @Value("${tiktok.redirect-uri:http://localhost:8080/api/v1/oauth/tiktok/callback}") private String tiktokRedirectUri;
 
     @GetMapping("/tiktok/authorize")
-    public ResponseEntity<Void> tiktokAuthorize(@RequestParam("project_id") String projectId) {
+    public ResponseEntity<Void> tiktokAuthorize(
+            @RequestParam(value = "project_id", required = false) String projectId) {
         // OAUTH SETUP REQUIRED:
         // 1. Create TikTok Developer app at https://developers.tiktok.com/apps/
         // 2. Set redirect URI to: http://localhost:8080/api/v1/oauth/tiktok/callback
@@ -197,7 +219,7 @@ public class OAuthController {
         // OAUTH SETUP REQUIRED: add TIKTOK_CLIENT_KEY + TIKTOK_CLIENT_SECRET to .env
         if (tiktokClientKey.isBlank()) return credentialsMissing("TIKTOK_CLIENT_KEY");
         try {
-            String projectId = decodeState(state);
+            String projectIdOrGlobal = decodeState(state);
             String tokenResp = webClientBuilder.build().post()
                 .uri("https://open.tiktokapis.com/v2/oauth/token/")
                 .header("Content-Type", "application/x-www-form-urlencoded")
@@ -211,8 +233,8 @@ public class OAuthController {
             String accessToken = json.path("access_token").asText();
             String refreshToken = json.path("refresh_token").asText(null);
             String openId = json.path("open_id").asText(null);
-            saveToken(UUID.fromString(projectId), "TT", accessToken, refreshToken, openId);
-            log.info("TikTok OAuth complete for project {}", projectId);
+            saveToken(projectIdOrGlobal, "TT", accessToken, refreshToken, openId);
+            log.info("TikTok OAuth complete for {}", projectIdOrGlobal);
             return redirectToSettings("tiktok");
         } catch (Exception e) {
             log.error("TikTok OAuth callback error: {}", e.getMessage(), e);
@@ -230,7 +252,8 @@ public class OAuthController {
     @Value("${linkedin.redirect-uri:http://localhost:8080/api/v1/oauth/linkedin/callback}") private String linkedinRedirectUri;
 
     @GetMapping("/linkedin/authorize")
-    public ResponseEntity<Void> linkedinAuthorize(@RequestParam("project_id") String projectId) {
+    public ResponseEntity<Void> linkedinAuthorize(
+            @RequestParam(value = "project_id", required = false) String projectId) {
         // OAUTH SETUP REQUIRED:
         // 1. Create LinkedIn Developer app at https://www.linkedin.com/developers/apps
         // 2. Set redirect URI to: http://localhost:8080/api/v1/oauth/linkedin/callback
@@ -255,7 +278,7 @@ public class OAuthController {
         // OAUTH SETUP REQUIRED: add LINKEDIN_CLIENT_ID + LINKEDIN_CLIENT_SECRET to .env
         if (linkedinClientId.isBlank()) return credentialsMissing("LINKEDIN_CLIENT_ID");
         try {
-            String projectId = decodeState(state);
+            String projectIdOrGlobal = decodeState(state);
             String tokenResp = webClientBuilder.build().post()
                 .uri("https://www.linkedin.com/oauth/v2/accessToken")
                 .header("Content-Type", "application/x-www-form-urlencoded")
@@ -273,8 +296,8 @@ public class OAuthController {
                 .header("Authorization", "Bearer " + accessToken)
                 .retrieve().bodyToMono(String.class).block();
             String memberId = objectMapper.readTree(profileResp).path("id").asText(null);
-            saveToken(UUID.fromString(projectId), "LI", accessToken, null, memberId);
-            log.info("LinkedIn OAuth complete for project {}", projectId);
+            saveToken(projectIdOrGlobal, "LI", accessToken, null, memberId);
+            log.info("LinkedIn OAuth complete for {}", projectIdOrGlobal);
             return redirectToSettings("linkedin");
         } catch (Exception e) {
             log.error("LinkedIn OAuth callback error: {}", e.getMessage(), e);
@@ -292,7 +315,8 @@ public class OAuthController {
     @Value("${reddit.redirect-uri:http://localhost:8080/api/v1/oauth/reddit/callback}") private String redditRedirectUri;
 
     @GetMapping("/reddit/authorize")
-    public ResponseEntity<Void> redditAuthorize(@RequestParam("project_id") String projectId) {
+    public ResponseEntity<Void> redditAuthorize(
+            @RequestParam(value = "project_id", required = false) String projectId) {
         // OAUTH SETUP REQUIRED:
         // 1. Go to https://www.reddit.com/prefs/apps → Create app (type: web app)
         // 2. Set redirect URI to: http://localhost:8080/api/v1/oauth/reddit/callback
@@ -317,7 +341,7 @@ public class OAuthController {
         // OAUTH SETUP REQUIRED: add REDDIT_CLIENT_ID + REDDIT_CLIENT_SECRET to .env
         if (redditClientId.isBlank()) return credentialsMissing("REDDIT_CLIENT_ID");
         try {
-            String projectId = decodeState(state);
+            String projectIdOrGlobal = decodeState(state);
             String creds = Base64.getEncoder()
                 .encodeToString((redditClientId + ":" + redditClientSecret).getBytes());
             String tokenResp = webClientBuilder.build().post()
@@ -331,8 +355,8 @@ public class OAuthController {
             JsonNode json = objectMapper.readTree(tokenResp);
             String accessToken = json.path("access_token").asText();
             String refreshToken = json.path("refresh_token").asText(null);
-            saveToken(UUID.fromString(projectId), "RD", accessToken, refreshToken, null);
-            log.info("Reddit OAuth complete for project {}", projectId);
+            saveToken(projectIdOrGlobal, "RD", accessToken, refreshToken, null);
+            log.info("Reddit OAuth complete for {}", projectIdOrGlobal);
             return redirectToSettings("reddit");
         } catch (Exception e) {
             log.error("Reddit OAuth callback error: {}", e.getMessage(), e);
@@ -351,7 +375,8 @@ public class OAuthController {
     @Value("${twitter.redirect-uri:http://localhost:8080/api/v1/oauth/twitter/callback}") private String twitterRedirectUri;
 
     @GetMapping("/twitter/authorize")
-    public ResponseEntity<Void> twitterAuthorize(@RequestParam("project_id") String projectId) {
+    public ResponseEntity<Void> twitterAuthorize(
+            @RequestParam(value = "project_id", required = false) String projectId) {
         // OAUTH SETUP REQUIRED:
         // 1. Go to https://developer.twitter.com/en/portal/dashboard → Create Project + App
         // 2. Enable OAuth 2.0 in App Settings, set redirect URI to:
@@ -380,7 +405,7 @@ public class OAuthController {
         // OAUTH SETUP REQUIRED: add TWITTER_CLIENT_ID + TWITTER_CLIENT_SECRET to .env
         if (twitterClientId.isBlank()) return credentialsMissing("TWITTER_CLIENT_ID");
         try {
-            String projectId = decodeState(state);
+            String projectIdOrGlobal = decodeState(state);
             String creds = Base64.getEncoder()
                 .encodeToString((twitterClientId + ":" + twitterClientSecret).getBytes());
             String tokenResp = webClientBuilder.build().post()
@@ -394,8 +419,8 @@ public class OAuthController {
             JsonNode json = objectMapper.readTree(tokenResp);
             String accessToken = json.path("access_token").asText();
             String refreshToken = json.path("refresh_token").asText(null);
-            saveToken(UUID.fromString(projectId), "X", accessToken, refreshToken, null);
-            log.info("Twitter OAuth complete for project {}", projectId);
+            saveToken(projectIdOrGlobal, "X", accessToken, refreshToken, null);
+            log.info("Twitter OAuth complete for {}", projectIdOrGlobal);
             return redirectToSettings("twitter");
         } catch (Exception e) {
             log.error("Twitter OAuth callback error: {}", e.getMessage(), e);
@@ -413,7 +438,8 @@ public class OAuthController {
     @Value("${youtube.redirect-uri:http://localhost:8080/api/v1/oauth/youtube/callback}") private String youtubeRedirectUri;
 
     @GetMapping("/youtube/authorize")
-    public ResponseEntity<Void> youtubeAuthorize(@RequestParam("project_id") String projectId) {
+    public ResponseEntity<Void> youtubeAuthorize(
+            @RequestParam(value = "project_id", required = false) String projectId) {
         // OAUTH SETUP REQUIRED:
         // 1. Create project at https://console.cloud.google.com
         // 2. Enable YouTube Data API v3
@@ -440,7 +466,7 @@ public class OAuthController {
         // OAUTH SETUP REQUIRED: add YOUTUBE_CLIENT_ID + YOUTUBE_CLIENT_SECRET to .env
         if (youtubeClientId.isBlank()) return credentialsMissing("YOUTUBE_CLIENT_ID");
         try {
-            String projectId = decodeState(state);
+            String projectIdOrGlobal = decodeState(state);
             String tokenResp = webClientBuilder.build().post()
                 .uri("https://oauth2.googleapis.com/token")
                 .header("Content-Type", "application/x-www-form-urlencoded")
@@ -453,8 +479,8 @@ public class OAuthController {
             JsonNode json = objectMapper.readTree(tokenResp);
             String accessToken = json.path("access_token").asText();
             String refreshToken = json.path("refresh_token").asText(null);
-            saveToken(UUID.fromString(projectId), "YT", accessToken, refreshToken, null);
-            log.info("YouTube OAuth complete for project {}", projectId);
+            saveToken(projectIdOrGlobal, "YT", accessToken, refreshToken, null);
+            log.info("YouTube OAuth complete for {}", projectIdOrGlobal);
             return redirectToSettings("youtube");
         } catch (Exception e) {
             log.error("YouTube OAuth callback error: {}", e.getMessage(), e);
@@ -469,7 +495,8 @@ public class OAuthController {
     // STEAM_PARTNER_KEY and STEAM_APP_ID to .env.
 
     @GetMapping("/steam/authorize")
-    public ResponseEntity<Map<String, String>> steamAuthorize(@RequestParam("project_id") String projectId) {
+    public ResponseEntity<Map<String, String>> steamAuthorize(
+            @RequestParam(value = "project_id", required = false) String projectId) {
         // SETUP REQUIRED:
         // 1. Register as a Steamworks partner at https://partner.steamgames.com
         // 2. Get your Publisher Web API Key from Users & Permissions → API Keys
@@ -489,7 +516,8 @@ public class OAuthController {
     // itch.io uses static API keys, not OAuth2
 
     @GetMapping("/itchio/authorize")
-    public ResponseEntity<Map<String, String>> itchioAuthorize(@RequestParam("project_id") String projectId) {
+    public ResponseEntity<Map<String, String>> itchioAuthorize(
+            @RequestParam(value = "project_id", required = false) String projectId) {
         // SETUP REQUIRED:
         // 1. Go to https://itch.io/user/settings/api-keys
         // 2. Generate an API key
@@ -508,7 +536,8 @@ public class OAuthController {
     // Game Jolt uses game-level HMAC signing, not per-user OAuth
 
     @GetMapping("/gamejolt/authorize")
-    public ResponseEntity<Map<String, String>> gamejoltAuthorize(@RequestParam("project_id") String projectId) {
+    public ResponseEntity<Map<String, String>> gamejoltAuthorize(
+            @RequestParam(value = "project_id", required = false) String projectId) {
         // SETUP REQUIRED:
         // 1. Go to https://gamejolt.com/dashboard → your game → API Settings
         // 2. Copy your Game ID and Private Key
@@ -522,26 +551,53 @@ public class OAuthController {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private void saveToken(UUID projectId, String platform, String accessToken,
+    /**
+     * Save a token either to global_platform_accounts (when projectIdOrGlobal == "global")
+     * or to platform_configs (when projectIdOrGlobal is a valid UUID string).
+     */
+    private void saveToken(String projectIdOrGlobal, String platform, String accessToken,
                             String refreshToken, String accountId) {
-        Optional<PlatformConfig> existing =
-            platformConfigRepository.findByProjectIdAndPlatform(projectId, platform);
-        PlatformConfig config = existing.orElseGet(() -> PlatformConfig.builder()
-            .projectId(projectId)
-            .platform(platform)
-            .enabled(true)
-            .useGlobalAccount(false)
-            .build());
-        config.setAccessToken(accessToken);
-        if (refreshToken != null) config.setRefreshToken(refreshToken);
-        if (accountId != null) config.setAccountId(accountId);
-        platformConfigRepository.save(config);
-        log.info("Saved {} token for project {}", platform, projectId);
+        if ("global".equals(projectIdOrGlobal)) {
+            Optional<GlobalPlatformAccount> existing =
+                globalPlatformAccountRepository.findByPlatform(platform);
+            GlobalPlatformAccount account = existing.orElseGet(() -> GlobalPlatformAccount.builder()
+                .platform(platform)
+                .build());
+            account.setAccessToken(accessToken);
+            if (refreshToken != null) account.setRefreshToken(refreshToken);
+            if (accountId != null) account.setAccountId(accountId);
+            globalPlatformAccountRepository.save(account);
+            log.info("Saved {} token to global_platform_accounts", platform);
+        } else {
+            try {
+                UUID projectUuid = UUID.fromString(projectIdOrGlobal);
+                Optional<PlatformConfig> existing =
+                    platformConfigRepository.findByProjectIdAndPlatform(projectUuid, platform);
+                PlatformConfig config = existing.orElseGet(() -> PlatformConfig.builder()
+                    .projectId(projectUuid)
+                    .platform(platform)
+                    .enabled(true)
+                    .useGlobalAccount(false)
+                    .build());
+                config.setAccessToken(accessToken);
+                if (refreshToken != null) config.setRefreshToken(refreshToken);
+                if (accountId != null) config.setAccountId(accountId);
+                platformConfigRepository.save(config);
+                log.info("Saved {} token for project {}", platform, projectUuid);
+            } catch (IllegalArgumentException e) {
+                log.error("saveToken: invalid projectIdOrGlobal value '{}' for platform {}", projectIdOrGlobal, platform);
+            }
+        }
     }
 
+    /**
+     * Encode a projectId into Base64 URL-safe state parameter.
+     * If projectId is null or blank, encodes the literal string "global".
+     */
     private String encodeState(String projectId) {
+        String value = (projectId != null && !projectId.isBlank()) ? projectId : "global";
         return Base64.getUrlEncoder().withoutPadding()
-            .encodeToString(projectId.getBytes(StandardCharsets.UTF_8));
+            .encodeToString(value.getBytes(StandardCharsets.UTF_8));
     }
 
     private String decodeState(String state) {

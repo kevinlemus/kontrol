@@ -85,6 +85,7 @@ public class ClaudeService {
                 DraftDto dto = DraftDto.builder()
                     .platformId(pid).content("[Add CLAUDE_API_KEY to .env to enable AI generation]")
                     .status("pending").build();
+                dto.setHook("Add CLAUDE_API_KEY to see hooks");
                 if ("RD".equals(pid) && !eligibleSubreddits.isEmpty()) {
                     dto.setSelectedSubreddit(eligibleSubreddits.get(0));
                     dto.setSubredditReasoning("Subreddit selection requires CLAUDE_API_KEY");
@@ -133,6 +134,7 @@ public class ClaudeService {
                 DraftDto dto = DraftDto.builder()
                     .platformId(pid).content("[Add CLAUDE_API_KEY to .env to enable AI generation]")
                     .status("pending").build();
+                dto.setHook("Add CLAUDE_API_KEY to see hooks");
                 if ("RD".equals(pid) && !eligibleSubreddits.isEmpty()) {
                     dto.setSelectedSubreddit(eligibleSubreddits.get(0));
                     dto.setSubredditReasoning("Subreddit selection requires CLAUDE_API_KEY");
@@ -308,11 +310,13 @@ public class ClaudeService {
             sb.append("\n");
         }
         sb.append("""
+HOOK FIELD: For each platform, also generate a 'hook' field: a 5-8 word punchy text optimized for on-screen video overlay. Make it attention-grabbing, platform-appropriate, and designed to stop the scroll. It should work as an overlay caption on a video — short, punchy, no hashtags.
+
 RESPONSE FORMAT — return ONLY valid JSON, no markdown fences, no explanation:
 {
-  "IG": { "content": "...", "title": null },
-  "TT": { "content": "...", "title": null },
-  "LI": { "content": "...", "title": null }
+  "IG": { "content": "...", "title": null, "hook": "5-8 word punchy hook text" },
+  "TT": { "content": "...", "title": null, "hook": "..." },
+  "LI": { "content": "...", "title": null, "hook": "..." }
 }
 Only include the platforms requested. Do not include others.
 """);
@@ -462,6 +466,8 @@ Only include the platforms requested. Do not include others.
                         .title(node.path("title").isNull() ? null : node.path("title").asText())
                         .status("pending")
                         .build();
+                    String hook = node.path("hook").isNull() ? null : node.path("hook").asText(null);
+                    draft.setHook(hook);
                     if ("RD".equals(pid)) {
                         String selectedSub = node.path("selectedSubreddit").isNull()
                             ? null : node.path("selectedSubreddit").asText(null);

@@ -17,6 +17,7 @@ export interface ApiDraft {
   selectedSubreddit?: string | null   // e.g. "bedroomproducers" (without r/)
   subredditReasoning?: string | null  // e.g. "Best fit — discusses vocal recording"
   postPlatformId?: string | null
+  hook?: string | null
 }
 
 export interface ApiSubredditMonitor {

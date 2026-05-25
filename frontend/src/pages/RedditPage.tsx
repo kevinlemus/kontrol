@@ -487,7 +487,7 @@ export function RedditPage() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-base)' }}>
       <PageHeader title="Reddit" />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 32px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px calc(72px + env(safe-area-inset-bottom))' }}>
 
         {/* ── Section 1: Monitored Subreddits ── */}
         <div style={{ marginBottom: 32 }}>

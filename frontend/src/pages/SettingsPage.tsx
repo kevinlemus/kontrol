@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useToast } from '../components/shared/Toast'
 import { useAuth } from '../contexts/AuthContext'
 import { authApi, uploadAvatar } from '../api/auth'
 import { projectsApi } from '../api/projects'
+import { connectionsApi, type ConnectionStatus } from '../api/connections'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -1008,6 +1009,7 @@ function MyProfileSection() {
 export function SettingsPage() {
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const [searchParams] = useSearchParams()
 
   // Voice edits state — read from localStorage, refresh on focus
   const [voiceEdits, setVoiceEdits] = useState<Record<string, number>>(readVoiceEdits)
@@ -1019,9 +1021,11 @@ export function SettingsPage() {
 
   // Platform/reset state
   const [showResetConfirm, setShowResetConfirm] = useState(false)
-  const [platforms, setPlatforms] = useState<PlatformAccount[]>(INITIAL_PLATFORM_ACCOUNTS)
   const [connectModal, setConnectModal] = useState<PlatformAccount | null>(null)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Real connection statuses from API
+  const [connectionStatuses, setConnectionStatuses] = useState<ConnectionStatus[]>([])
 
   // Get current project ID for OAuth flows — fetch from API
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
@@ -1034,10 +1038,52 @@ export function SettingsPage() {
       .catch(() => {})
   }, [])
 
+  // Handle OAuth redirect params — run once on mount
+  useEffect(() => {
+    const connected = searchParams.get('connected')
+    const errorParam = searchParams.get('error')
+    if (connected) showToast(`${connected.charAt(0).toUpperCase() + connected.slice(1)} connected ✓`)
+    if (errorParam === 'not_configured') showToast(`Platform not configured — check env vars`)
+    else if (errorParam) showToast(`Connection failed: ${errorParam}`)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // intentionally empty — only run once on mount
+
+  // Fetch real connection statuses whenever activeProjectId changes
+  useEffect(() => {
+    connectionsApi.list(activeProjectId ?? undefined)
+      .then(setConnectionStatuses)
+      .catch(() => {})
+  }, [activeProjectId])
+
+  // Helpers to look up real connection status
+  function getConnectionStatus(key: PlatformKey): ConnectStatus {
+    if (connectionStatuses.length === 0) {
+      return INITIAL_PLATFORM_ACCOUNTS.find(p => p.key === key)?.status ?? 'not_connected'
+    }
+    const found = connectionStatuses.find(c => c.platform === key)
+    if (!found || !found.connected) return 'not_connected'
+    return 'connected'
+  }
+  function getAccountHandle(key: PlatformKey): string | undefined {
+    const found = connectionStatuses.find(c => c.platform === key)
+    return found?.accountHandle ?? undefined
+  }
+
+  // Derive platforms from INITIAL_PLATFORM_ACCOUNTS, overlaying real statuses
+  const platforms = INITIAL_PLATFORM_ACCOUNTS.map(p => ({
+    ...p,
+    status: (p.status === 'pending' ? 'pending' : getConnectionStatus(p.key)) as ConnectStatus,
+    account: p.status === 'pending' ? p.account : getAccountHandle(p.key),
+  }))
+
   const handleDisconnect = (key: PlatformKey) => {
-    setPlatforms(ps => ps.map(p =>
-      p.key === key ? { ...p, status: 'not_connected' as const, account: undefined } : p
-    ))
+    connectionsApi.disconnect(key, activeProjectId ?? undefined)
+      .then(() => {
+        connectionsApi.list(activeProjectId ?? undefined)
+          .then(setConnectionStatuses)
+          .catch(() => {})
+      })
+      .catch(() => {})
   }
 
   const handleResetConfirm = () => {
@@ -1053,7 +1099,7 @@ export function SettingsPage() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-base)' }}>
       <SettingsHeader onBack={() => navigate(-1)} />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 48px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 80px' }}>
 
         {/* ── Section 0: My Profile ── */}
         <MyProfileSection />

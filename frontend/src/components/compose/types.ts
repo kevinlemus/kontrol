@@ -28,6 +28,7 @@ export interface PlatformDraft {
   onScreenText?: string
   selectedPostType: PostType
   postPlatformId?: string
+  hook?: string
 }
 
 export interface ComposeState {

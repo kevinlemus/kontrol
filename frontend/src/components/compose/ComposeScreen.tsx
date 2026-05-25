@@ -139,6 +139,7 @@ function ProjectSwitcher({ currentName, onSwitch, projects, onActivate }: Projec
             borderRadius: 12,
             padding: '6px 0',
             minWidth: 200,
+            maxWidth: '90vw',
             zIndex: 150,
             boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
             marginTop: 4,
@@ -663,6 +664,7 @@ export function ComposeScreen() {
             subredditReasoning: apiDraft.subredditReasoning ?? newDrafts[platformId]?.subredditReasoning,
             status: 'pending' as const,
             postPlatformId: apiDraft.postPlatformId ?? undefined,
+            hook: apiDraft.hook ?? undefined,
           }
         }
 
@@ -915,6 +917,7 @@ export function ComposeScreen() {
                   mediaUrl={state.mediaUrl}
                   onMediaDrop={url => setState(prev => ({ ...prev, mediaUrl: url }))}
                   desktop
+                  hook={state.drafts[state.activePlatformId]?.hook}
                 />
                 <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 2 }}>
                   <VoiceInput onTranscript={handleVoiceTranscript} />
@@ -1101,6 +1104,7 @@ export function ComposeScreen() {
               onPromptChange={p => setState(prev => ({ ...prev, prompt: p }))}
               mediaUrl={state.mediaUrl}
               onMediaDrop={url => setState(prev => ({ ...prev, mediaUrl: url }))}
+              hook={state.drafts[state.activePlatformId]?.hook}
             />
             <div style={{ display: 'flex', alignItems: 'center', padding: '0 14px 10px', gap: 8 }}>
               <VoiceInput onTranscript={handleVoiceTranscript} />
@@ -1273,7 +1277,7 @@ export function ComposeScreen() {
         overflowY: 'auto',
         marginTop: -1,
         minHeight: 420,
-        paddingBottom: 72,
+        paddingBottom: 'calc(72px + env(safe-area-inset-bottom))',
       }}>
         {enabledPlatforms.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 14, fontFamily: 'var(--font-body)' }}>

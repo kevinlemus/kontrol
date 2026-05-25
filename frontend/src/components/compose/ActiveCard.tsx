@@ -462,6 +462,60 @@ export function ActiveCard({
         </div>
       )}
 
+      {/* Hook chip — shown when draft has a hook and is not yet approved */}
+      {draft.hook && draft.status !== 'approved' && (
+        <div style={{
+          padding: '0 16px 12px',
+          flexShrink: 0,
+        }}>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(draft.hook!).then(() => {
+                showToast('Hook copied — paste it in your video editor')
+              }).catch(() => showToast('Copy failed'))
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '7px 12px',
+              background: 'rgba(59,130,246,0.1)',
+              border: '1px solid rgba(59,130,246,0.25)',
+              borderRadius: 999,
+              cursor: 'pointer',
+              maxWidth: '100%',
+            }}
+          >
+            <span style={{
+              fontSize: 10,
+              fontWeight: 700,
+              fontFamily: 'var(--font-mono)',
+              color: 'rgba(59,130,246,0.8)',
+              letterSpacing: 0.8,
+              textTransform: 'uppercase',
+              flexShrink: 0,
+            }}>
+              HOOK
+            </span>
+            <span style={{
+              fontSize: 13,
+              fontFamily: 'var(--font-body)',
+              color: 'var(--text-primary)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {draft.hook}
+            </span>
+            {/* Copy icon */}
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
+              <rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M1 9V2a1 1 0 011-1h7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Edit / Preview toggle — always visible */}
       <div style={{ padding: '6px 14px 4px', display: 'flex' }}>
         <div style={{

@@ -6,9 +6,10 @@ interface InputBlockProps {
   mediaUrl: string | null
   onMediaDrop: (url: string) => void
   desktop?: boolean
+  hook?: string  // suggested video hook text
 }
 
-export function InputBlock({ prompt, onPromptChange, mediaUrl, onMediaDrop, desktop }: InputBlockProps) {
+export function InputBlock({ prompt, onPromptChange, mediaUrl, onMediaDrop, desktop, hook }: InputBlockProps) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   function handleDrop(e: React.DragEvent) {
@@ -60,11 +61,38 @@ export function InputBlock({ prompt, onPromptChange, mediaUrl, onMediaDrop, desk
         }}
       >
         {mediaUrl ? (
-          <img
-            src={mediaUrl}
-            alt="media"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+          <>
+            <img
+              src={mediaUrl}
+              alt="media"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+            {hook && (
+              <div style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+                padding: '12px 6px 6px',
+                borderRadius: '0 0 var(--radius-chip) var(--radius-chip)',
+              }}>
+                <span style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 10,
+                  fontWeight: 800,
+                  color: '#fff',
+                  textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+                  display: 'block',
+                  textAlign: 'center',
+                  lineHeight: 1.3,
+                  letterSpacing: -0.2,
+                }}>
+                  {hook}
+                </span>
+              </div>
+            )}
+          </>
         ) : (
           <>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ opacity: 0.4 }}>
