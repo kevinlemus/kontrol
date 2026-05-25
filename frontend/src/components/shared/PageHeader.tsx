@@ -60,9 +60,10 @@ export function PageHeader({ title, rightSlot }: PageHeaderProps) {
     <header style={{
       display: 'grid',
       gridTemplateColumns: '1fr auto 1fr',
-      alignItems: 'center',
-      height: 52,
+      alignItems: 'end',
+      minHeight: 'calc(52px + env(safe-area-inset-top))',
       padding: '0 16px',
+      paddingTop: 'env(safe-area-inset-top)',
       borderBottom: '1px solid rgba(255,255,255,0.05)',
       flexShrink: 0,
       background: 'var(--bg-base)',

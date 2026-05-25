@@ -2,6 +2,11 @@
 
 /* Design system tokens */
 :root {
+  /* iOS safe-area inset variables — available as var(--sat), var(--sab) etc. */
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
   --bg-base:    #000000;
   --bg-card:    #181818;
   --bg-raised:  #282828;

@@ -50,7 +50,8 @@ export function BottomNav() {
     <nav style={{
       background: 'linear-gradient(180deg, #181818 0%, #0a0a0a 100%)',
       borderTop: '1px solid rgba(255,255,255,0.06)',
-      padding: '8px 8px calc(8px + env(safe-area-inset-bottom))',
+      padding: '8px 8px 8px',
+      paddingBottom: 'calc(8px + env(safe-area-inset-bottom))',
       display: 'flex',
       gap: 4,
       flexShrink: 0,
