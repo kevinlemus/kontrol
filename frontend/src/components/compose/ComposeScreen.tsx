@@ -14,11 +14,12 @@ import { useToast } from '../shared/Toast'
 import { generateApi } from '../../api/generate'
 import { performanceApi } from '../../api/performance'
 import { useAuth } from '../../contexts/AuthContext'
+import { projectsApi } from '../../api/projects'
 import type { GenerateResponse, PerformanceInsightDto } from '../../api/types'
 
 const ALL_PLATFORM_IDS: PlatformId[] = ['IG', 'TT', 'LI', 'RD', 'X', 'FB', 'YT', 'ST', 'IT', 'GJ']
 
-// Fallback for when localStorage has no data yet
+// Fallback platform lists when a project has no platform config
 const PLATFORM_FALLBACKS: Record<string, PlatformId[]> = {
   'DaStu':     ['IG', 'TT', 'LI', 'RD', 'YT'],
   'Sumo Slam': ['IG', 'TT', 'RD', 'X', 'YT', 'ST', 'IT', 'GJ'],
@@ -39,35 +40,14 @@ interface StoredProject {
   competitor3?: string
 }
 
-function getStoredProjects(): StoredProject[] {
-  try {
-    const stored = localStorage.getItem('kontrol_projects')
-    if (stored) return JSON.parse(stored) as StoredProject[]
-  } catch {}
-  return []
-}
-
-function getEnabledPlatforms(projectName: string): PlatformId[] {
-  try {
-    const projects = getStoredProjects()
-    const project = projects.find(p => p.name === projectName)
-    if (project?.platforms) {
-      const enabled = (Object.entries(project.platforms) as [string, { enabled: boolean }][])
-        .filter(([, cfg]) => cfg.enabled)
-        .map(([id]) => id as PlatformId)
-      if (enabled.length > 0) return enabled
-    }
-  } catch {}
+function getEnabledPlatformsFromProject(project: StoredProject | null, projectName: string): PlatformId[] {
+  if (project?.platforms) {
+    const enabled = (Object.entries(project.platforms) as [string, { enabled: boolean }][])
+      .filter(([, cfg]) => cfg.enabled)
+      .map(([id]) => id as PlatformId)
+    if (enabled.length > 0) return enabled
+  }
   return PLATFORM_FALLBACKS[projectName] ?? ALL_PLATFORM_IDS
-}
-
-function getActiveProjectName(): string {
-  try {
-    const projects = getStoredProjects()
-    const active = projects.find(p => p.active)
-    if (active) return active.name
-  } catch {}
-  return 'DaStu'
 }
 
 // ─── Project color helpers ────────────────────────────────────────────────────
@@ -85,20 +65,14 @@ function getProjectDotColor(name: string): string {
 
 interface ProjectSwitcherProps {
   currentName: string
-  onSwitch: (name: string) => void
+  onSwitch: (proj: StoredProject) => void
+  projects: StoredProject[]
+  onActivate: (id: string) => void
 }
 
-function ProjectSwitcher({ currentName, onSwitch }: ProjectSwitcherProps) {
+function ProjectSwitcher({ currentName, onSwitch, projects, onActivate }: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false)
-  const [projects, setProjects] = useState<StoredProject[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
-
-  // Load projects whenever dropdown opens
-  useEffect(() => {
-    if (open) {
-      setProjects(getStoredProjects())
-    }
-  }, [open])
 
   // Close on outside click
   useEffect(() => {
@@ -114,12 +88,8 @@ function ProjectSwitcher({ currentName, onSwitch }: ProjectSwitcherProps) {
 
   const handleSelect = (proj: StoredProject) => {
     if (proj.active) { setOpen(false); return }
-    try {
-      const all = getStoredProjects()
-      const updated = all.map(p => ({ ...p, active: p.id === proj.id }))
-      localStorage.setItem('kontrol_projects', JSON.stringify(updated))
-    } catch {}
-    onSwitch(proj.name)
+    onActivate(proj.id)
+    onSwitch(proj)
     setOpen(false)
   }
 
@@ -252,11 +222,13 @@ function ProjectSwitcher({ currentName, onSwitch }: ProjectSwitcherProps) {
 
 interface ComposeTopBarProps {
   projectName: string
-  onProjectSwitch: (name: string) => void
+  onProjectSwitch: (proj: StoredProject) => void
   activeProject?: StoredProject
+  projects: StoredProject[]
+  onActivate: (id: string) => void
 }
 
-function ComposeTopBar({ projectName, onProjectSwitch, activeProject }: ComposeTopBarProps) {
+function ComposeTopBar({ projectName, onProjectSwitch, activeProject, projects, onActivate }: ComposeTopBarProps) {
   const [showProjectInfo, setShowProjectInfo] = useState(false)
   const infoRef = useRef<HTMLDivElement>(null)
 
@@ -317,7 +289,7 @@ function ComposeTopBar({ projectName, onProjectSwitch, activeProject }: ComposeT
 
       {/* Project switcher pill + info button */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <ProjectSwitcher currentName={projectName} onSwitch={onProjectSwitch} />
+        <ProjectSwitcher currentName={projectName} onSwitch={onProjectSwitch} projects={projects} onActivate={onActivate} />
 
         {/* Info button + popover */}
         <div ref={infoRef} style={{ position: 'relative', display: 'inline-block' }}>
@@ -520,7 +492,7 @@ function useComposeLayout() {
 
 function buildInitialState(): ComposeState {
   return {
-    projectName: getActiveProjectName(),
+    projectName: 'DaStu',
     prompt: '',
     mediaUrl: null,
     activePlatformId: 'RD',
@@ -540,6 +512,41 @@ export function ComposeScreen() {
   // projectKey increments whenever the active project changes — forces re-derivation
   const [projectKey, setProjectKey] = useState(0)
 
+  // API-driven project list
+  const [apiProjects, setApiProjects] = useState<StoredProject[]>([])
+
+  // Load projects from API on mount
+  useEffect(() => {
+    projectsApi.list()
+      .then(list => {
+        const mapped: StoredProject[] = list.map((p, idx) => ({
+          id: p.id,
+          name: p.name,
+          active: p.active,
+          platforms: {},
+          whatItIs: p.whatItIs ?? undefined,
+          whoItsFor: p.whoItsFor ?? undefined,
+          vibe: p.vibe ?? undefined,
+          currentStatus: p.currentStatus ?? undefined,
+          // Assign first project as active if none are flagged
+          ...(idx === 0 && !list.some(x => x.active) ? { active: true } : {}),
+        }))
+        setApiProjects(mapped)
+        // Sync active project name into compose state
+        const active = mapped.find(p => p.active)
+        if (active) {
+          setState(prev => ({ ...prev, projectName: active.name }))
+        }
+      })
+      .catch(() => {
+        // Backend offline — keep current state
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const activeStoredProject = apiProjects.find(p => p.active) ?? null
+  const activeProjectId = activeStoredProject?.id ?? null
+
   const [state, setState] = useState<ComposeState>(buildInitialState)
   const [generating, setGenerating] = useState(false)
   const [showSmartSchedule, setShowSmartSchedule] = useState(false)
@@ -557,21 +564,27 @@ export function ComposeScreen() {
     setShowTip(false)
   }
 
-
-  // Re-derive enabled platforms when projectKey or projectName changes
-  const enabledPlatforms = getEnabledPlatforms(state.projectName)
+  // Re-derive enabled platforms from API project data
+  const enabledPlatforms = getEnabledPlatformsFromProject(activeStoredProject, state.projectName)
 
   // Per-generation platform selection — defaults to all enabled platforms
   const [selectedPlatforms, setSelectedPlatforms] = useState<PlatformId[]>(enabledPlatforms)
 
   // Reset when project changes
   useEffect(() => {
-    setSelectedPlatforms(getEnabledPlatforms(state.projectName))
+    setSelectedPlatforms(getEnabledPlatformsFromProject(activeStoredProject, state.projectName))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.projectName, projectKey])
+  }, [state.projectName, projectKey, activeStoredProject])
 
-  const handleProjectSwitch = useCallback((name: string) => {
-    setState(prev => ({ ...prev, projectName: name }))
+  const handleActivateProject = useCallback((id: string) => {
+    // Optimistically update local state
+    setApiProjects(prev => prev.map(p => ({ ...p, active: p.id === id })))
+    // Fire and forget API call
+    projectsApi.activate(id).catch(() => {})
+  }, [])
+
+  const handleProjectSwitch = useCallback((proj: StoredProject) => {
+    setState(prev => ({ ...prev, projectName: proj.name }))
     setProjectKey(k => k + 1)
   }, [])
 
@@ -583,10 +596,6 @@ export function ComposeScreen() {
 
   const activePlatform = PLATFORM_MAP[state.activePlatformId]
   const activeDraft = state.drafts[state.activePlatformId]
-
-  const storedProjects = getStoredProjects()
-  const activeStoredProject = storedProjects.find(p => p.active) ?? null
-  const activeProjectId = activeStoredProject?.id ?? null
 
   const allApproved = selectedPlatforms.length > 0 &&
     selectedPlatforms.every(id => {
@@ -628,8 +637,7 @@ export function ComposeScreen() {
 
     // Try real API first — fall back to mock on failure
     try {
-      const projects = getStoredProjects()
-      const active = projects.find(p => p.active)
+      const active = apiProjects.find(p => p.active)
       if (active?.id && active.id !== 'local') {
         const resp: GenerateResponse = await generateApi.generate({
           projectId: active.id,
@@ -695,7 +703,7 @@ export function ComposeScreen() {
       })
     }, 1800)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.prompt, state.drafts, selectedPlatforms])
+  }, [state.prompt, state.drafts, selectedPlatforms, apiProjects])
 
   const handleSelectPlatform = useCallback((id: PlatformId) => {
     setState(prev => ({ ...prev, activePlatformId: id }))
@@ -832,7 +840,7 @@ export function ComposeScreen() {
           padding: '16px 20px 20px',
           gap: 10,
         }}>
-          <ComposeTopBar projectName={state.projectName} onProjectSwitch={handleProjectSwitch} activeProject={activeStoredProject ?? undefined} />
+          <ComposeTopBar projectName={state.projectName} onProjectSwitch={handleProjectSwitch} activeProject={activeStoredProject ?? undefined} projects={apiProjects} onActivate={handleActivateProject} />
 
           {/* Voice learning tip banner — desktop */}
           {showTip && (
@@ -1006,7 +1014,7 @@ export function ComposeScreen() {
       background: 'var(--bg-base)',
       overflow: 'hidden',
     }}>
-      <ComposeTopBar projectName={state.projectName} onProjectSwitch={handleProjectSwitch} activeProject={activeStoredProject ?? undefined} />
+      <ComposeTopBar projectName={state.projectName} onProjectSwitch={handleProjectSwitch} activeProject={activeStoredProject ?? undefined} projects={apiProjects} onActivate={handleActivateProject} />
 
       {/* Scrollable content above card */}
       <div style={{

@@ -9,6 +9,12 @@ function authHeaders(): HeadersInit {
   }
 }
 
+function getToken(): string | null {
+  const raw = localStorage.getItem('kontrol_auth')
+  const auth = raw ? (JSON.parse(raw) as { token?: string }) : null
+  return auth?.token ?? null
+}
+
 export interface LoginResponse {
   token: string
   user: {
@@ -84,6 +90,20 @@ export const authApi = {
       headers: authHeaders(),
       body: JSON.stringify({ url }),
     }).then(r => r.json()),
+}
+
+export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
+  const token = getToken()
+  const form = new FormData()
+  form.append('avatar', file)
+  const res = await fetch(`${BASE}/api/v1/auth/avatar`, {
+    method: 'POST',
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: form,
+  })
+  if (!res.ok) throw new Error('Upload failed')
+  const data = await res.json() as { avatar_url: string }
+  return { avatarUrl: data.avatar_url }
 }
 
 // FRONTEND-AGENT: api/auth complete

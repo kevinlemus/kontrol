@@ -6,6 +6,7 @@ export interface AuthUser {
   id?: string
   name: string
   email?: string
+  avatarUrl?: string
   voiceProfile?: string
   onboardingCompleted?: boolean
   token: string
@@ -23,7 +24,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 const STORAGE_KEY = 'kontrol_auth'
 
-const CLEAR_KEYS = ['kontrol_projects', 'kontrol_smart_schedule', 'kontrol_voice_edits']
+const CLEAR_KEYS = ['kontrol_smart_schedule', 'kontrol_voice_edits']
 
 function responseToUser(res: LoginResponse): AuthUser {
   return {

@@ -1,10 +1,13 @@
-﻿import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../components/shared/Toast'
 import { useAuth } from '../contexts/AuthContext'
-import { authApi } from '../api/auth'
+import { authApi, uploadAvatar } from '../api/auth'
+import { projectsApi } from '../api/projects'
 
-// ─── Voice learning data ───────────────────────────────────────────────────────
+// ─── Constants ─────────────────────────────────────────────────────────────────
+
+const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
 const PLATFORM_EMOJI: Record<string, string> = {
   IG: '📸', TT: '🎵', LI: '💼', RD: '🔴', X: '✕',
@@ -13,6 +16,20 @@ const PLATFORM_EMOJI: Record<string, string> = {
 const PLATFORM_NAME: Record<string, string> = {
   IG: 'Instagram', TT: 'TikTok', LI: 'LinkedIn', RD: 'Reddit', X: 'X',
   FB: 'Facebook', YT: 'YouTube', ST: 'Steam', IT: 'itch.io', GJ: 'Game Jolt',
+}
+
+// Map platform key to the backend OAuth authorize path segment
+const PLATFORM_OAUTH_PATH: Record<string, string> = {
+  IG: 'instagram',
+  TT: 'tiktok',
+  LI: 'linkedin',
+  RD: 'reddit',
+  X:  'twitter',
+  FB: 'facebook',
+  YT: 'youtube',
+  ST: 'steam',
+  IT: 'itchio',
+  GJ: 'gamejolt',
 }
 
 function readVoiceEdits(): Record<string, number> {
@@ -57,25 +74,18 @@ const INITIAL_PLATFORM_ACCOUNTS: PlatformAccount[] = [
   { key: 'GJ', name: 'Game Jolt', gradient: 'linear-gradient(135deg, #2F7F3E, #45B069)',          status: 'not_connected' },
 ]
 
-// ─── Platform env var map ─────────────────────────────────────────────────────
+// ─── ConnectModal ─────────────────────────────────────────────────────────────
+// Clean modal — no .env instructions, no variable names
 
-const PLATFORM_ENV_VARS: Record<PlatformKey, string[]> = {
-  IG: ['META_APP_ID', 'META_APP_SECRET'],
-  FB: ['META_APP_ID', 'META_APP_SECRET'],
-  TT: ['TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET'],
-  LI: ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET'],
-  RD: ['REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET'],
-  X:  ['TWITTER_API_KEY', 'TWITTER_API_SECRET'],
-  YT: ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET'],
-  ST: ['STEAM_PARTNER_KEY'],
-  IT: ['ITCHIO_API_KEY'],
-  GJ: ['GAMEJOLT_API_KEY'],
-}
-
-// ─── OAuthModal ───────────────────────────────────────────────────────────────
-
-function OAuthModal({ platform, onClose }: { platform: PlatformAccount; onClose: () => void }) {
-  const envVars = PLATFORM_ENV_VARS[platform.key] ?? []
+function ConnectModal({ platform, projectId, onClose }: {
+  platform: PlatformAccount
+  projectId: string | null
+  onClose: () => void
+}) {
+  const oauthPath = PLATFORM_OAUTH_PATH[platform.key] ?? platform.key.toLowerCase()
+  const authorizeUrl = projectId
+    ? `${BASE}/api/v1/oauth/${oauthPath}/authorize?project_id=${projectId}`
+    : null
 
   return (
     <>
@@ -85,7 +95,6 @@ function OAuthModal({ platform, onClose }: { platform: PlatformAccount; onClose:
           to   { opacity: 1; transform: scale(1); }
         }
       `}</style>
-      {/* Backdrop */}
       <div
         onClick={onClose}
         style={{
@@ -99,11 +108,10 @@ function OAuthModal({ platform, onClose }: { platform: PlatformAccount; onClose:
           padding: '0 20px',
         }}
       >
-        {/* Panel */}
         <div
           onClick={e => e.stopPropagation()}
           style={{
-            maxWidth: 400,
+            maxWidth: 380,
             width: '100%',
             background: 'var(--bg-card)',
             borderRadius: 20,
@@ -114,7 +122,6 @@ function OAuthModal({ platform, onClose }: { platform: PlatformAccount; onClose:
         >
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-            {/* Platform swatch */}
             <span style={{
               width: 40, height: 40, borderRadius: 10,
               background: platform.gradient,
@@ -149,50 +156,60 @@ function OAuthModal({ platform, onClose }: { platform: PlatformAccount; onClose:
             color: 'var(--text-secondary)',
             fontFamily: 'var(--font-body)',
             lineHeight: 1.6,
-            margin: '0 0 14px',
+            margin: '0 0 20px',
           }}>
-            Connect your {platform.name} account to enable publishing directly from Kontrol.
-          </p>
-          <p style={{
-            fontSize: 13,
-            color: 'var(--text-muted)',
-            fontFamily: 'var(--font-body)',
-            lineHeight: 1.6,
-            margin: '0 0 14px',
-          }}>
-            To enable: add the following to your backend <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: 'var(--bg-raised)', padding: '2px 6px', borderRadius: 4 }}>.env</span> file and restart the server.
+            Connect your {platform.name} account to publish directly from Kontrol.
           </p>
 
-          {/* Env vars */}
-          <div style={{
-            background: 'var(--bg-raised)',
-            borderRadius: 10,
-            padding: '12px 14px',
-            marginBottom: 24,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-          }}>
-            {envVars.map(v => (
-              <span
-                key={v}
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                  background: 'var(--bg-raised)',
-                  color: 'var(--text-secondary)',
-                  padding: '2px 6px',
-                  borderRadius: 4,
-                  display: 'inline-block',
-                  letterSpacing: 0.3,
-                }}
-              >
-                {v}
-              </span>
-            ))}
-          </div>
+          {/* Not configured state */}
+          {!authorizeUrl ? (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '12px 14px',
+                background: 'rgba(255,255,255,0.04)',
+                borderRadius: 10,
+                border: '1px solid rgba(255,255,255,0.07)',
+              }}>
+                <span style={{
+                  width: 7, height: 7, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.2)', flexShrink: 0,
+                }} />
+                <span style={{
+                  fontSize: 13, color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-body)',
+                }}>
+                  Not connected — coming soon
+                </span>
+              </div>
+            </div>
+          ) : (
+            <a
+              href={authorizeUrl}
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '12px 0',
+                background: '#3B82F6',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 999,
+                fontFamily: 'var(--font-body)',
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: 'pointer',
+                textAlign: 'center',
+                textDecoration: 'none',
+                boxSizing: 'border-box',
+                marginBottom: 12,
+              }}
+            >
+              Connect {platform.name} →
+            </a>
+          )}
 
-          {/* Got it button */}
           <button
             onClick={onClose}
             style={{
@@ -208,7 +225,7 @@ function OAuthModal({ platform, onClose }: { platform: PlatformAccount; onClose:
               cursor: 'pointer',
             }}
           >
-            Got it
+            Cancel
           </button>
         </div>
       </div>
@@ -283,7 +300,6 @@ function PlatformRow({
               {platform.account}
             </span>
           </span>
-          {/* Disconnect button */}
           <button
             onClick={handleDisconnectClick}
             style={{
@@ -363,7 +379,6 @@ function PlatformRow({
       padding: '14px 0',
       borderBottom: '1px solid rgba(255,255,255,0.05)',
     }}>
-      {/* Gradient swatch */}
       <span style={{
         width: 40, height: 40, borderRadius: 10,
         background: platform.gradient,
@@ -375,7 +390,6 @@ function PlatformRow({
         {platform.key}
       </span>
 
-      {/* Platform name */}
       <span style={{
         flex: 1,
         fontSize: 15, fontWeight: 600,
@@ -385,7 +399,6 @@ function PlatformRow({
         {platform.name}
       </span>
 
-      {/* Status */}
       {renderStatus()}
     </div>
   )
@@ -444,16 +457,467 @@ function SettingsHeader({ onBack }: { onBack: () => void }) {
   )
 }
 
+// ─── Avatar component ─────────────────────────────────────────────────────────
+
+function Avatar({
+  avatarUrl,
+  name,
+  size,
+  onClick,
+}: {
+  avatarUrl?: string
+  name: string
+  size: number
+  onClick?: () => void
+}) {
+  const initial = name.trim().charAt(0).toUpperCase() || '?'
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        overflow: 'hidden',
+        background: avatarUrl ? 'transparent' : '#3B82F6',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        cursor: onClick ? 'pointer' : 'default',
+        border: '2px solid rgba(255,255,255,0.1)',
+      }}
+    >
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={name}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      ) : (
+        <span style={{
+          fontSize: size * 0.42,
+          fontWeight: 700,
+          color: '#fff',
+          fontFamily: 'var(--font-body)',
+          lineHeight: 1,
+        }}>
+          {initial}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ─── My Profile Section ───────────────────────────────────────────────────────
+
+function MyProfileSection() {
+  const { user, updateUser } = useAuth()
+  const { showToast } = useToast()
+
+  // Avatar upload
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+
+  // Name editing
+  const [name, setName] = useState(user?.name ?? '')
+  const [nameDirty, setNameDirty] = useState(false)
+  const [nameSaving, setNameSaving] = useState(false)
+  const [nameError, setNameError] = useState('')
+  const [nameOk, setNameOk] = useState(false)
+
+  // Email editing
+  const [email, setEmail] = useState(user?.email ?? '')
+  const [emailDirty, setEmailDirty] = useState(false)
+  const [emailCurrentPw, setEmailCurrentPw] = useState('')
+  const [emailSaving, setEmailSaving] = useState(false)
+  const [emailError, setEmailError] = useState('')
+  const [emailOk, setEmailOk] = useState(false)
+
+  // Password change
+  const [showPwForm, setShowPwForm] = useState(false)
+  const [currentPw, setCurrentPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwError, setPwError] = useState('')
+  const [pwOk, setPwOk] = useState(false)
+
+  const inputStyle: React.CSSProperties = {
+    flex: 1,
+    background: 'transparent',
+    border: 'none',
+    borderBottom: '1px solid rgba(255,255,255,0.08)',
+    outline: 'none',
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-body)',
+    fontSize: 14,
+    padding: '8px 0',
+  }
+
+  const fieldInputStyle: React.CSSProperties = {
+    width: '100%',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: '14px',
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-body)',
+    fontSize: 14,
+    outline: 'none',
+    boxSizing: 'border-box',
+  }
+
+  const saveBtnStyle = (dirty: boolean): React.CSSProperties => ({
+    padding: '6px 14px',
+    borderRadius: 10,
+    border: dirty ? 'none' : '1px solid rgba(255,255,255,0.12)',
+    background: dirty ? '#3B82F6' : 'none',
+    color: dirty ? '#fff' : 'var(--text-muted)',
+    fontFamily: 'var(--font-body)',
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: dirty ? 'pointer' : 'default',
+    flexShrink: 0,
+    transition: 'background 0.15s, color 0.15s',
+  })
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const { avatarUrl } = await uploadAvatar(file)
+      updateUser({ avatarUrl })
+      showToast('Avatar updated')
+    } catch {
+      showToast('Avatar upload failed')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleSaveName = async () => {
+    if (!nameDirty || nameSaving) return
+    setNameSaving(true)
+    setNameError('')
+    setNameOk(false)
+    try {
+      await authApi.updateSettings({ name })
+      updateUser({ name })
+      setNameOk(true)
+      setNameDirty(false)
+      setTimeout(() => setNameOk(false), 2500)
+    } catch {
+      setNameError('Failed to save name')
+    } finally {
+      setNameSaving(false)
+    }
+  }
+
+  const handleSaveEmail = async () => {
+    if (!emailDirty || emailSaving) return
+    setEmailSaving(true)
+    setEmailError('')
+    setEmailOk(false)
+    try {
+      await authApi.updateSettings({ email })
+      updateUser({ email })
+      setEmailOk(true)
+      setEmailDirty(false)
+      setEmailCurrentPw('')
+      setTimeout(() => setEmailOk(false), 2500)
+    } catch {
+      setEmailError('Failed to save email')
+    } finally {
+      setEmailSaving(false)
+    }
+  }
+
+  const handleChangePassword = async () => {
+    setPwError('')
+    setPwOk(false)
+    if (newPw !== confirmPw) { setPwError('Passwords do not match'); return }
+    if (newPw.length < 8) { setPwError('Must be at least 8 characters'); return }
+    setPwSaving(true)
+    try {
+      const res = await authApi.changePassword(currentPw, newPw)
+      if (res.error) { setPwError(res.error); return }
+      setPwOk(true)
+      setCurrentPw(''); setNewPw(''); setConfirmPw('')
+      setTimeout(() => { setPwOk(false); setShowPwForm(false) }, 2000)
+    } catch {
+      setPwError('Failed to update password')
+    } finally {
+      setPwSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      {/* Section label */}
+      <div style={{
+        fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+        letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, paddingLeft: 4,
+      }}>
+        My Profile
+      </div>
+
+      <div style={{
+        background: 'var(--bg-card)',
+        borderRadius: 16,
+        border: '1px solid rgba(255,255,255,0.06)',
+        overflow: 'hidden',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+      }}>
+        {/* Avatar + name row */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          padding: '20px 18px',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+        }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <Avatar
+              avatarUrl={user?.avatarUrl}
+              name={user?.name ?? '?'}
+              size={64}
+              onClick={handleAvatarClick}
+            />
+            {/* Upload indicator */}
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              right: 0,
+              width: 20,
+              height: 20,
+              borderRadius: '50%',
+              background: '#3B82F6',
+              border: '2px solid var(--bg-card)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+              onClick={handleAvatarClick}
+            >
+              {uploading ? (
+                <span style={{ fontSize: 9, color: '#fff' }}>...</span>
+              ) : (
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M5 2v6M2 5h6" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleAvatarChange}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 18, fontWeight: 700,
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-body)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {user?.name ?? 'Your name'}
+            </div>
+            {user?.email && (
+              <div style={{
+                fontSize: 12, color: 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)',
+                marginTop: 2,
+              }}>
+                {user.email}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Name field */}
+        <div style={{
+          padding: '14px 18px',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}>
+          <div style={{
+            fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+            textTransform: 'uppercase', letterSpacing: 1,
+          }}>
+            Name
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <input
+              type="text"
+              value={name}
+              onChange={e => { setName(e.target.value); setNameDirty(true); setNameOk(false) }}
+              onBlur={handleSaveName}
+              placeholder="Your name"
+              style={inputStyle}
+            />
+            <button
+              onClick={handleSaveName}
+              disabled={!nameDirty || nameSaving}
+              style={saveBtnStyle(nameDirty && !nameSaving)}
+            >
+              {nameSaving ? '...' : nameOk ? 'Saved' : 'Save'}
+            </button>
+          </div>
+          {nameError && (
+            <span style={{ fontSize: 11, color: '#EF4444', fontFamily: 'var(--font-body)' }}>{nameError}</span>
+          )}
+          {nameOk && (
+            <span style={{ fontSize: 11, color: '#1ED760', fontFamily: 'var(--font-body)' }}>Name saved</span>
+          )}
+        </div>
+
+        {/* Email field */}
+        <div style={{
+          padding: '14px 18px',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}>
+          <div style={{
+            fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+            textTransform: 'uppercase', letterSpacing: 1,
+          }}>
+            Email
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <input
+              type="email"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setEmailDirty(true); setEmailOk(false) }}
+              placeholder="your@email.com"
+              style={inputStyle}
+            />
+            <button
+              onClick={handleSaveEmail}
+              disabled={!emailDirty || emailSaving}
+              style={saveBtnStyle(emailDirty && !emailSaving)}
+            >
+              {emailSaving ? '...' : emailOk ? 'Saved' : 'Save'}
+            </button>
+          </div>
+          {emailDirty && (
+            <input
+              type="password"
+              value={emailCurrentPw}
+              onChange={e => setEmailCurrentPw(e.target.value)}
+              placeholder="Current password (required to change email)"
+              style={{ ...fieldInputStyle, marginTop: 4 }}
+            />
+          )}
+          {emailError && (
+            <span style={{ fontSize: 11, color: '#EF4444', fontFamily: 'var(--font-body)' }}>{emailError}</span>
+          )}
+          {emailOk && (
+            <span style={{ fontSize: 11, color: '#1ED760', fontFamily: 'var(--font-body)' }}>Email saved</span>
+          )}
+        </div>
+
+        {/* Password change */}
+        <div style={{ padding: '14px 18px' }}>
+          {!showPwForm ? (
+            <button
+              onClick={() => setShowPwForm(true)}
+              style={{
+                background: 'none', border: 'none', padding: 0,
+                color: 'var(--text-muted)', fontFamily: 'var(--font-body)',
+                fontSize: 13, cursor: 'pointer',
+              }}
+            >
+              Change password →
+            </button>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{
+                fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+                textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2,
+              }}>
+                Change Password
+              </div>
+              <input
+                type="password"
+                value={currentPw}
+                onChange={e => setCurrentPw(e.target.value)}
+                placeholder="Current password"
+                style={fieldInputStyle}
+              />
+              <input
+                type="password"
+                value={newPw}
+                onChange={e => setNewPw(e.target.value)}
+                placeholder="New password"
+                style={fieldInputStyle}
+              />
+              <input
+                type="password"
+                value={confirmPw}
+                onChange={e => setConfirmPw(e.target.value)}
+                placeholder="Confirm new password"
+                style={fieldInputStyle}
+              />
+              {pwError && (
+                <span style={{ fontSize: 11, color: '#EF4444', fontFamily: 'var(--font-body)' }}>{pwError}</span>
+              )}
+              {pwOk && (
+                <span style={{ fontSize: 11, color: '#1ED760', fontFamily: 'var(--font-body)' }}>Password updated</span>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                <button
+                  onClick={handleChangePassword}
+                  disabled={pwSaving}
+                  style={{
+                    background: '#3B82F6', border: 'none', borderRadius: 10,
+                    padding: '10px 18px', color: '#fff',
+                    fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 700,
+                    cursor: pwSaving ? 'not-allowed' : 'pointer',
+                    opacity: pwSaving ? 0.6 : 1,
+                  }}
+                >
+                  {pwSaving ? 'Updating...' : 'Update Password'}
+                </button>
+                <button
+                  onClick={() => { setShowPwForm(false); setPwError(''); setCurrentPw(''); setNewPw(''); setConfirmPw('') }}
+                  style={{
+                    background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: 10,
+                    padding: '10px 16px', color: 'var(--text-muted)',
+                    fontFamily: 'var(--font-body)', fontSize: 13, cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const { user, updateUser } = useAuth()
-
-  // Profile state
-  const [profileName, setProfileName] = useState(user?.name ?? '')
-  const [showPasswordForm, setShowPasswordForm] = useState(false)
 
   // Voice edits state — read from localStorage, refresh on focus
   const [voiceEdits, setVoiceEdits] = useState<Record<string, number>>(readVoiceEdits)
@@ -462,54 +926,23 @@ export function SettingsPage() {
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [])
-  const [currentPw, setCurrentPw] = useState('')
-  const [newPw, setNewPw] = useState('')
-  const [confirmPw, setConfirmPw] = useState('')
-  const [pwError, setPwError] = useState('')
 
   // Platform/reset state
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [platforms, setPlatforms] = useState<PlatformAccount[]>(INITIAL_PLATFORM_ACCOUNTS)
-  const [oauthModal, setOauthModal] = useState<PlatformAccount | null>(null)
+  const [connectModal, setConnectModal] = useState<PlatformAccount | null>(null)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const pwInputStyle: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 8,
-    padding: '10px 12px',
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-body)',
-    fontSize: 13,
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box',
-  }
-
-  const handleSaveProfile = async () => {
-    try {
-      await authApi.updateSettings({ name: profileName })
-      updateUser({ name: profileName })
-      showToast('Profile saved')
-    } catch {
-      // silently ignore if backend offline
-    }
-  }
-
-  const handleChangePassword = async () => {
-    setPwError('')
-    if (newPw !== confirmPw) { setPwError('Passwords do not match'); return }
-    if (newPw.length < 8) { setPwError('Password must be at least 8 characters'); return }
-    try {
-      const res = await authApi.changePassword(currentPw, newPw)
-      if (res.error) { setPwError(res.error); return }
-      showToast('Password updated')
-      setShowPasswordForm(false)
-      setCurrentPw(''); setNewPw(''); setConfirmPw('')
-    } catch {
-      setPwError('Failed to update password')
-    }
-  }
+  // Get current project ID for OAuth flows — fetch from API
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  useEffect(() => {
+    projectsApi.list()
+      .then(list => {
+        const active = list.find(p => p.active)
+        setActiveProjectId(active?.id ?? null)
+      })
+      .catch(() => {})
+  }, [])
 
   const handleDisconnect = (key: PlatformKey) => {
     setPlatforms(ps => ps.map(p =>
@@ -532,112 +965,8 @@ export function SettingsPage() {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 48px' }}>
 
-        {/* ── Section 0: Your Profile ── */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{
-            fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
-            letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8, paddingLeft: 4,
-          }}>
-            Your Profile
-          </div>
-          <div style={{
-            background: 'var(--bg-card)', borderRadius: 12,
-            border: '1px solid rgba(255,255,255,0.06)',
-            overflow: 'hidden',
-          }}>
-            {/* Name row */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '12px 14px',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
-            }}>
-              <span style={{
-                fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)',
-                width: 80, flexShrink: 0,
-              }}>
-                Name
-              </span>
-              <input
-                type="text"
-                value={profileName}
-                onChange={e => setProfileName(e.target.value)}
-                onBlur={() => handleSaveProfile()}
-                style={{
-                  flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                  color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontSize: 14,
-                }}
-                placeholder="Your name"
-              />
-            </div>
-
-            {/* Change password */}
-            <div style={{ padding: '12px 14px' }}>
-              {!showPasswordForm ? (
-                <button
-                  onClick={() => setShowPasswordForm(true)}
-                  style={{
-                    background: 'none', border: 'none', padding: 0,
-                    color: 'var(--text-muted)', fontFamily: 'var(--font-body)',
-                    fontSize: 13, cursor: 'pointer',
-                  }}
-                >
-                  Change password →
-                </button>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <input
-                    type="password"
-                    value={currentPw}
-                    onChange={e => setCurrentPw(e.target.value)}
-                    placeholder="Current password"
-                    style={pwInputStyle}
-                  />
-                  <input
-                    type="password"
-                    value={newPw}
-                    onChange={e => setNewPw(e.target.value)}
-                    placeholder="New password"
-                    style={pwInputStyle}
-                  />
-                  <input
-                    type="password"
-                    value={confirmPw}
-                    onChange={e => setConfirmPw(e.target.value)}
-                    placeholder="Confirm new password"
-                    style={pwInputStyle}
-                  />
-                  {pwError && (
-                    <div style={{ fontSize: 11, color: 'rgba(239,68,68,0.85)', fontFamily: 'var(--font-body)' }}>
-                      {pwError}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      onClick={handleChangePassword}
-                      style={{
-                        background: '#3B82F6', border: 'none', borderRadius: 8,
-                        padding: '8px 16px', color: '#fff',
-                        fontFamily: 'var(--font-body)', fontSize: 13, cursor: 'pointer',
-                      }}
-                    >
-                      Update
-                    </button>
-                    <button
-                      onClick={() => { setShowPasswordForm(false); setPwError('') }}
-                      style={{
-                        background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: 8,
-                        padding: '8px 16px', color: 'var(--text-muted)',
-                        fontFamily: 'var(--font-body)', fontSize: 13, cursor: 'pointer',
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        {/* ── Section 0: My Profile ── */}
+        <MyProfileSection />
 
         {/* ── Section 1: Your Voice Profile ── */}
         <div style={{ marginBottom: 16 }}>
@@ -672,7 +1001,6 @@ export function SettingsPage() {
               from every edit you make to generated posts.
             </p>
 
-            {/* Per-platform edit counts */}
             {(() => {
               const trackedPlatforms = Object.entries(voiceEdits).filter(([, count]) => count > 0)
               if (trackedPlatforms.length === 0) {
@@ -740,7 +1068,7 @@ export function SettingsPage() {
         <div style={{ marginBottom: 36 }}>
           <SectionHeader
             title="Platform Accounts"
-            subtitle="These credentials are shared across all projects unless a project overrides them."
+            subtitle="Connect your accounts to enable publishing from Kontrol."
           />
           <div style={{
             background: 'var(--bg-card)',
@@ -755,7 +1083,7 @@ export function SettingsPage() {
                 <PlatformRow
                   platform={p}
                   onDisconnect={handleDisconnect}
-                  onOpenModal={setOauthModal}
+                  onOpenModal={setConnectModal}
                 />
               </div>
             ))}
@@ -850,12 +1178,16 @@ export function SettingsPage() {
         </div>
       </div>
 
-      {/* OAuth Modal */}
-      {oauthModal && (
-        <OAuthModal platform={oauthModal} onClose={() => setOauthModal(null)} />
+      {/* Connect Modal */}
+      {connectModal && (
+        <ConnectModal
+          platform={connectModal}
+          projectId={activeProjectId}
+          onClose={() => setConnectModal(null)}
+        />
       )}
     </div>
   )
 }
 
-// FRONTEND-AGENT: SettingsPage complete (Task B + Task C)
+// FRONTEND-AGENT: SettingsPage complete (Issues 1, 3, 4)

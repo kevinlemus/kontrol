@@ -1,8 +1,9 @@
-import { useState, Fragment } from 'react'
+import { useState, Fragment, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/shared/PageHeader'
 import { useToast } from '../components/shared/Toast'
 import { performanceApi } from '../api/performance'
+import { projectsApi } from '../api/projects'
 import type { SmartScheduleTimingDto } from '../api/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -492,23 +493,6 @@ function EmptyState({ onGoToCompose }: { onGoToCompose: () => void }) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-interface StoredProject {
-  id: string
-  name: string
-  active: boolean
-  platforms: Record<string, { enabled: boolean }>
-}
-
-function getActiveScheduleProjectId(): string | null {
-  try {
-    const stored = localStorage.getItem('kontrol_projects')
-    if (!stored) return null
-    const projects = JSON.parse(stored) as StoredProject[]
-    return projects.find(p => p.active)?.id ?? null
-  } catch {
-    return null
-  }
-}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -518,11 +502,22 @@ export function SchedulePage() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [showLegend, setShowLegend] = useState(false)
   const [scheduleTiming, setScheduleTiming] = useState<SmartScheduleTimingDto | null>(null)
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   const [smartBatches, setSmartBatches] = useState<SmartBatch[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('kontrol_smart_schedule') ?? '[]')
     } catch { return [] }
   })
+
+  // Load active project ID from API
+  useEffect(() => {
+    projectsApi.list()
+      .then(list => {
+        const active = list.find(p => p.active)
+        setActiveProjectId(active?.id ?? null)
+      })
+      .catch(() => {})
+  }, [])
 
   const handleRemove = (id: string) => {
     setPosts(ps => ps.filter(p => p.id !== id))
@@ -552,7 +547,6 @@ export function SchedulePage() {
                   const nextOpen = !showLegend
                   setShowLegend(nextOpen)
                   if (nextOpen) {
-                    const activeProjectId = getActiveScheduleProjectId()
                     const enabledPlatformIds = posts
                       .flatMap(p => p.platforms)
                       .filter((v, i, a) => a.indexOf(v) === i)

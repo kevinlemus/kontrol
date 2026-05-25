@@ -31,6 +31,9 @@ public class UserSettings {
     @Column(name = "onboarding_completed")
     private boolean onboardingCompleted = false;
 
+    @Column(name = "avatar_url")
+    private String avatarUrl;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

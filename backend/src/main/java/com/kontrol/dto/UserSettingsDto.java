@@ -9,5 +9,6 @@ public class UserSettingsDto {
     private String email;
     private String voiceProfile;
     private boolean onboardingCompleted;
+    private String avatarUrl;
     // password never returned to frontend
 }

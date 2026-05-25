@@ -1686,48 +1686,28 @@ export function ProjectsPage() {
   const navigate = useNavigate()
   const isNarrow = useIsNarrow()
 
-  const [projects, setProjects] = useState<Project[]>(() => {
-    try {
-      const stored = localStorage.getItem('kontrol_projects')
-      if (stored) {
-        const parsed = JSON.parse(stored) as Project[]
-        // Task 6: merge personas if missing
-        return mergePersonasIfAbsent(parsed)
-      }
-    } catch {}
-    // First load — seed localStorage
-    localStorage.setItem('kontrol_projects', JSON.stringify(INITIAL_PROJECTS))
-    return INITIAL_PROJECTS
-  })
+  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS)
   const [showNewForm, setShowNewForm] = useState(false)
 
-  // Persist to localStorage when projects change
-  useEffect(() => {
-    localStorage.setItem('kontrol_projects', JSON.stringify(projects))
-  }, [projects])
-
-  // Try fetching from API on mount, fall back to localStorage
+  // Load exclusively from API on mount
   useEffect(() => {
     projectsApi.list()
       .then(apiProjects => {
         if (apiProjects.length > 0) {
-          setProjects(prev => {
-            const merged = apiProjects.map(ap => {
-              const local = prev.find(p => p.name === ap.name)
-              return local ? { ...local, id: ap.id } : DEFAULT_PROJECT_FROM_API(ap)
-            })
-            localStorage.setItem('kontrol_projects', JSON.stringify(merged))
-            return merged
-          })
+          const mapped = apiProjects.map(ap => DEFAULT_PROJECT_FROM_API(ap))
+          setProjects(mergePersonasIfAbsent(mapped))
         }
       })
-      .catch(() => { /* keep localStorage data */ })
+      .catch(() => {
+        // Backend offline — keep seed data shown as placeholder
+      })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleSetActive = (id: string) => {
     setProjects(ps => ps.map(p => ({ ...p, active: p.id === id })))
-    // Navigate to compose after switching project
+    // Fire API activate call and navigate to compose
+    projectsApi.activate(id).catch(() => {})
     navigate('/compose')
   }
 

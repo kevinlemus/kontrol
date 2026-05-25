@@ -110,6 +110,14 @@ public class UserSettingsService {
             .email(u.getEmail())
             .voiceProfile(u.getVoiceProfile())
             .onboardingCompleted(u.isOnboardingCompleted())
+            .avatarUrl(u.getAvatarUrl())
             .build();
+    }
+
+    public UserSettingsDto updateAvatarUrl(UUID userId, String avatarUrl) {
+        UserSettings u = getById(userId);
+        u.setAvatarUrl(avatarUrl);
+        u.setUpdatedAt(OffsetDateTime.now());
+        return toDto(userSettingsRepository.save(u));
     }
 }

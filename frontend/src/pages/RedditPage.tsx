@@ -3,6 +3,7 @@ import { PageHeader } from '../components/shared/PageHeader'
 import { Toggle } from '../components/shared/Toggle'
 import { useToast } from '../components/shared/Toast'
 import { redditApi } from '../api/reddit'
+import { projectsApi } from '../api/projects'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -428,17 +429,6 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: 'dismissed', label: 'Dismissed' },
 ]
 
-function getStoredActiveProjectId(): string | null {
-  try {
-    const stored = localStorage.getItem('kontrol_projects')
-    if (!stored) return null
-    const projects = JSON.parse(stored) as Array<{ id: string; active: boolean }>
-    return projects.find(p => p.active)?.id ?? null
-  } catch {
-    return null
-  }
-}
-
 export function RedditPage() {
   const { showToast } = useToast()
   const [subreddits, setSubreddits] = useState<Subreddit[]>(INITIAL_SUBREDDITS)
@@ -446,10 +436,20 @@ export function RedditPage() {
   const [filterTab, setFilterTab] = useState<FilterTab>('all')
   const [newSubreddit, setNewSubreddit] = useState('')
   const checkNowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
 
-  // Fetch real suggestions from API on mount, fall back to mock
+  // Load active project ID from API on mount
   useEffect(() => {
-    const activeProjectId = getStoredActiveProjectId()
+    projectsApi.list()
+      .then(list => {
+        const active = list.find(p => p.active)
+        setActiveProjectId(active?.id ?? null)
+      })
+      .catch(() => {})
+  }, [])
+
+  // Fetch real suggestions from API when active project is known
+  useEffect(() => {
     if (!activeProjectId) return
     redditApi.getSuggestions(activeProjectId)
       .then(apiSuggestions => {
@@ -469,7 +469,8 @@ export function RedditPage() {
         }
       })
       .catch(() => { /* keep mock data */ })
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId])
 
   const pendingCount = suggestions.filter(s => s.status === 'pending').length
 

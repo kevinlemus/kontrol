@@ -1,16 +1,19 @@
 package com.kontrol.controller;
 
 import com.kontrol.dto.UserSettingsDto;
-import com.kontrol.model.UserSettings;
 import com.kontrol.service.UserSettingsService;
 import com.kontrol.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.client.WebClient;
 
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -21,6 +24,16 @@ public class AuthController {
 
     private final UserSettingsService userSettingsService;
     private final JwtUtil jwtUtil;
+    private final WebClient.Builder webClientBuilder;
+
+    @Value("${supabase.url:}")
+    private String supabaseUrl;
+
+    @Value("${supabase.anon-key:}")
+    private String supabaseAnonKey;
+
+    private static final List<String> ALLOWED_IMAGE_TYPES =
+        List.of("image/jpeg", "image/png", "image/webp", "image/gif");
 
     // BACKEND-AGENT: POST /api/v1/auth/register complete
 
@@ -134,6 +147,78 @@ public class AuthController {
         return ok
             ? ResponseEntity.ok(Map.of("message", "Password updated"))
             : ResponseEntity.status(401).body(Map.of("error", "Current password incorrect"));
+    }
+
+    // BACKEND-AGENT: POST /api/v1/auth/avatar complete
+
+    /**
+     * POST /api/v1/auth/avatar
+     * Form-data field: avatar (MultipartFile)
+     * Header: Authorization: Bearer <token>
+     * Uploads image to Supabase Storage bucket "avatars", updates user's avatar_url.
+     */
+    @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadAvatar(
+            @RequestHeader(value = "Authorization", required = false) String auth,
+            @RequestParam(value = "avatar", required = false) MultipartFile avatar) {
+
+        UUID userId = extractUserId(auth);
+        if (userId == null) return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+
+        if (avatar == null || avatar.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "No file provided"));
+        }
+
+        String contentType = avatar.getContentType();
+        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType)) {
+            return ResponseEntity.badRequest().body(
+                Map.of("error", "Unsupported image type. Allowed: jpeg, png, webp, gif"));
+        }
+
+        if (supabaseUrl.isBlank() || supabaseAnonKey.isBlank()) {
+            log.warn("Supabase URL or anon key not configured — cannot upload avatar");
+            return ResponseEntity.status(503).body(Map.of("error", "Storage not configured"));
+        }
+
+        try {
+            String originalFilename = avatar.getOriginalFilename();
+            String filename = (originalFilename != null && !originalFilename.isBlank())
+                ? originalFilename
+                : "avatar." + contentType.split("/")[1];
+
+            // Sanitize filename to prevent path traversal
+            filename = filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+
+            String storagePath = userId + "/" + filename;
+            String uploadUrl = supabaseUrl + "/storage/v1/object/avatars/" + storagePath;
+
+            byte[] bytes = avatar.getBytes();
+
+            // Upload to Supabase Storage
+            webClientBuilder.build()
+                .post()
+                .uri(uploadUrl)
+                .header("Authorization", "Bearer " + supabaseAnonKey)
+                .header("Content-Type", contentType)
+                .header("x-upsert", "true")
+                .bodyValue(bytes)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+
+            // Build the public URL
+            String publicUrl = supabaseUrl + "/storage/v1/object/public/avatars/" + storagePath;
+
+            // Persist avatar_url on the user record
+            userSettingsService.updateAvatarUrl(userId, publicUrl);
+
+            log.info("Avatar uploaded for user {}: {}", userId, publicUrl);
+            return ResponseEntity.ok(Map.of("avatar_url", publicUrl));
+
+        } catch (Exception e) {
+            log.error("Avatar upload failed for user {}: {}", userId, e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("error", "Upload failed"));
+        }
     }
 
     private UUID extractUserId(String authHeader) {
