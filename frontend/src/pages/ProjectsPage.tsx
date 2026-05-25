@@ -1774,25 +1774,48 @@ export function ProjectsPage() {
           </div>
         ) : !projectsLoading && projects.length === 0 ? (
           <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', padding: '80px 24px', gap: 16, textAlign: 'center',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 16,
+            padding: '40px 24px',
+            textAlign: 'center',
           }}>
-            <div style={{ fontSize: 32 }}>📁</div>
-            <div style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 20, color: 'var(--text-primary)' }}>
-              No projects yet
-            </div>
-            <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--text-secondary)' }}>
-              Create your first project to start generating posts
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 32,
+              fontWeight: 800,
+              background: 'linear-gradient(90deg, #fff 60%, rgba(255,255,255,0.4) 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              letterSpacing: -1,
+            }}>kontrol</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+                Create your first project
+              </span>
+              <span style={{ fontSize: 14, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5, maxWidth: 260, display: 'block', margin: '0 auto' }}>
+                Projects organize your social content by brand or product. Each project gets its own voice, platforms, and post history.
+              </span>
             </div>
             <button
               onClick={() => setShowNewForm(true)}
               style={{
-                marginTop: 8, padding: '12px 24px', borderRadius: 12,
-                background: 'var(--accent)', border: 'none', color: '#fff',
-                fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+                background: 'var(--accent)',
+                color: '#fff',
+                borderRadius: 'var(--radius-button)',
+                padding: '12px 24px',
+                fontSize: 14,
+                fontWeight: 700,
+                fontFamily: 'var(--font-body)',
+                cursor: 'pointer',
+                border: 'none',
               }}
             >
-              Create project
+              + Create Project
             </button>
           </div>
         ) : (

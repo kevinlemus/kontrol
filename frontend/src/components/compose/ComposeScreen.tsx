@@ -16,6 +16,7 @@ import { performanceApi } from '../../api/performance'
 import { useAuth } from '../../contexts/AuthContext'
 import { projectsApi } from '../../api/projects'
 import { getConnectedPlatforms } from '../../api/platforms'
+import { connectionsApi } from '../../api/connections'
 import type { GenerateResponse, PerformanceInsightDto } from '../../api/types'
 
 const ALL_PLATFORM_IDS: PlatformId[] = ['IG', 'TT', 'LI', 'RD', 'X', 'FB', 'YT', 'ST', 'IT', 'GJ']
@@ -266,12 +267,12 @@ function ComposeTopBar({ projectName, onProjectSwitch, activeProject, projects, 
 
   return (
     <div style={{
-      minHeight: 'calc(48px + env(safe-area-inset-top))',
+      minHeight: 'calc(48px + max(env(safe-area-inset-top), 44px))',
       display: 'flex',
       alignItems: 'flex-end',
       justifyContent: 'space-between',
       padding: '0 16px',
-      paddingTop: 'env(safe-area-inset-top)',
+      paddingTop: 'max(env(safe-area-inset-top), 44px)',
       flexShrink: 0,
       borderBottom: '1px solid rgba(255,255,255,0.05)',
       position: 'relative',
@@ -511,6 +512,7 @@ export function ComposeScreen() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const userName = user?.name ?? 'Creator'
+  const { showToast } = useToast()
 
   // projectKey increments whenever the active project changes — forces re-derivation
   const [projectKey, setProjectKey] = useState(0)
@@ -560,6 +562,24 @@ export function ComposeScreen() {
   const [insights, setInsights] = useState<PerformanceInsightDto[] | null>(null)
   const [postPlatformIds, setPostPlatformIds] = useState<Record<string, string>>({})
   const [originalContents, setOriginalContents] = useState<Record<string, string>>({})
+  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([])
+
+  // ── Load connection status when active project changes ─────────────────────
+  useEffect(() => {
+    const fetchConnections = async () => {
+      try {
+        const list = activeProjectId
+          ? await connectionsApi.list(activeProjectId)
+          : await connectionsApi.list()
+        setConnectedPlatforms(list.filter(c => c.connected).map(c => c.platform))
+      } catch {
+        // Backend offline — leave empty (chips show no badge)
+        setConnectedPlatforms([])
+      }
+    }
+    void fetchConnections()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId])
 
   // ── Voice learning tip banner ──────────────────────────────────────────────
   const [showTip, setShowTip] = useState(
@@ -572,9 +592,9 @@ export function ComposeScreen() {
 
   // Re-derive enabled platforms from API project data,
   // then intersect with platforms that have a confirmed OAuth connection
-  const connectedPlatforms = getConnectedPlatforms()
+  const localConnectedPlatforms = getConnectedPlatforms()
   const enabledPlatforms = getEnabledPlatformsFromProject(activeStoredProject, state.projectName)
-    .filter(id => connectedPlatforms.includes(id))
+    .filter(id => localConnectedPlatforms.includes(id))
 
   // Per-generation platform selection — defaults to all enabled platforms
   const [selectedPlatforms, setSelectedPlatforms] = useState<PlatformId[]>(enabledPlatforms)
@@ -717,7 +737,13 @@ export function ComposeScreen() {
 
   const handleSelectPlatform = useCallback((id: PlatformId) => {
     setState(prev => ({ ...prev, activePlatformId: id }))
-  }, [])
+    // Show informational toast if platform is not connected (Reddit uses API key, not OAuth)
+    if (id !== 'RD' && connectedPlatforms.length > 0 && !connectedPlatforms.includes(id)) {
+      const platform = PLATFORM_MAP[id]
+      showToast(`Connect ${platform?.name ?? id} in Settings to publish directly. Posts can still be generated and copied.`)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectedPlatforms])
 
   const handleContentChange = useCallback((content: string) => {
     setState(prev => ({
@@ -906,8 +932,25 @@ export function ComposeScreen() {
 
           {/* Input + voice row — or empty state if no projects */}
           {projectsReady && apiProjects.length === 0 ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 14, fontFamily: 'var(--font-body)' }}>
-              Create a project first to start generating posts.
+            <div style={{ padding: '40px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-body)' }}>
+                Create a project first to start generating posts.
+              </div>
+              <button
+                onClick={() => navigate('/projects')}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--accent)',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '4px 0',
+                }}
+              >
+                Go to Projects →
+              </button>
             </div>
           ) : (
             <>
@@ -1095,8 +1138,25 @@ export function ComposeScreen() {
 
         {/* Input + voice row — or empty state if no projects */}
         {projectsReady && apiProjects.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 14, fontFamily: 'var(--font-body)' }}>
-            Create a project first to start generating posts.
+          <div style={{ padding: '40px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-body)' }}>
+              Create a project first to start generating posts.
+            </div>
+            <button
+              onClick={() => navigate('/projects')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--accent)',
+                fontFamily: 'var(--font-body)',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: '4px 0',
+              }}
+            >
+              Go to Projects →
+            </button>
           </div>
         ) : (
           <div>
@@ -1267,6 +1327,7 @@ export function ComposeScreen() {
               activePlatformId={state.activePlatformId}
               onSelectPlatform={handleSelectPlatform}
               enabledPlatforms={visiblePlatforms}
+              connectedPlatforms={connectedPlatforms}
             />
           )
         })()}

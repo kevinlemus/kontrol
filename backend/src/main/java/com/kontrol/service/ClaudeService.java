@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @Slf4j
@@ -210,11 +212,16 @@ public class ClaudeService {
         String projectContextText = project.getProjectContextText();
         boolean hasDocContext = projectContextText != null && !projectContextText.isBlank();
 
-        if (!hasIndustry && !hasCompetitors && !hasDocContext) {
+        boolean hasPlatformNotes = project.getPlatformCompetitorNotes() != null
+            && !project.getPlatformCompetitorNotes().isEmpty();
+
+        if (!hasIndustry && !hasCompetitors && !hasDocContext && !hasPlatformNotes) {
             return base;
         }
 
         StringBuilder sb = new StringBuilder(base);
+
+        // Tier 4 — Generic competitive & industry context
         if (hasIndustry) {
             sb.append("INDUSTRY CONTEXT: This project is in the ")
               .append(industry)
@@ -232,6 +239,45 @@ public class ClaudeService {
               .append("competitors.\n\n");
         }
 
+        // Tier 4 (platform-aware) — per-platform competitive intelligence
+        if (hasIndustry || hasCompetitors || hasPlatformNotes) {
+            sb.append("PLATFORM-SPECIFIC COMPETITIVE INTELLIGENCE:\n\n");
+            Map<String, String> platformNotes = hasPlatformNotes
+                ? project.getPlatformCompetitorNotes() : Map.of();
+            for (String platform : platforms) {
+                String platformName = PLATFORM_DISPLAY_NAMES.getOrDefault(platform, platform);
+                sb.append("Platform: ").append(platformName).append("\n");
+                sb.append("When generating content for ").append(platformName).append(", consider:\n");
+                if (hasIndustry) {
+                    sb.append("- What content formats perform best in the ")
+                      .append(industry).append(" space on ").append(platformName).append("\n");
+                }
+                if (hasCompetitors) {
+                    sb.append("- How ").append(String.join(", ", competitors))
+                      .append(" typically position themselves on ").append(platformName).append("\n");
+                    sb.append("- What differentiates this brand from those competitors specifically on ")
+                      .append(platformName).append("\n");
+                }
+                if (hasIndustry) {
+                    sb.append("- Tone and format conventions that work for ")
+                      .append(industry).append(" on ").append(platformName).append("\n");
+                }
+                sb.append("Apply your knowledge of current ").append(platformName)
+                  .append(" trends and best practices");
+                if (hasIndustry) {
+                    sb.append(" for ").append(industry);
+                }
+                sb.append(".\n");
+                sb.append("Do not copy competitors — differentiate from them.\n");
+                String extraNote = platformNotes.get(platform);
+                if (extraNote != null && !extraNote.isBlank()) {
+                    sb.append("Additional competitive context for ").append(platformName).append(":\n")
+                      .append(extraNote).append("\n");
+                }
+                sb.append("\n");
+            }
+        }
+
         // Tier 5 — Project documentation
         if (hasDocContext) {
             String ctx = projectContextText.length() > 4000
@@ -245,6 +291,64 @@ public class ClaudeService {
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Build per-platform competitive notes from existing project data.
+     * No extra Claude API call — uses project industry + competitors to construct
+     * a structured framing string for each platform.
+     */
+    Map<String, String> buildPlatformCompetitorNotes(ProjectContextDto ctx, List<String> platforms) {
+        Map<String, String> notes = new HashMap<>();
+        if (ctx.getIndustry() == null && ctx.getCompetitor1() == null) return notes;
+
+        String competitors = Stream.of(ctx.getCompetitor1(), ctx.getCompetitor2(), ctx.getCompetitor3())
+            .filter(c -> c != null && !c.isBlank())
+            .collect(Collectors.joining(", "));
+
+        for (String platform : platforms) {
+            String note = buildNoteForPlatform(platform, ctx.getIndustry(), competitors);
+            if (note != null) notes.put(platform, note);
+        }
+        return notes;
+    }
+
+    private String buildNoteForPlatform(String platform, String industry, String competitors) {
+        String ind = industry != null ? industry : "this industry";
+        String comp = competitors != null && !competitors.isBlank() ? competitors : "established players";
+        return switch (platform.toUpperCase()) {
+            case "IG" -> "Instagram: favor visual storytelling, Reels over static, trending audio. Industry: "
+                + ind + ". Competitors: " + comp
+                + ". Stand out via authentic behind-the-scenes and strong visual brand identity.";
+            case "TT" -> "TikTok: hook in first 2 seconds, trending sounds, challenge formats. Industry: "
+                + ind + ". Competitors: " + comp
+                + ". Win via raw authenticity and humor over polished production.";
+            case "LI" -> "LinkedIn: thought leadership, professional insights, personal journey. Industry: "
+                + ind + ". Competitors: " + comp
+                + ". Lead with data and lessons learned.";
+            case "RD" -> "Reddit: community value first, no overt promotion, answer questions genuinely. Industry: "
+                + ind + ". Competitors: " + comp
+                + ". Be helpful — let the product speak for itself.";
+            case "X" -> "X (Twitter): brevity, wit, hot takes, threads for depth. Industry: "
+                + ind + ". Competitors: " + comp
+                + ". Win with distinctive voice and timely commentary.";
+            case "FB" -> "Facebook: community building, longer storytelling, events and groups. Industry: "
+                + ind + ". Competitors: " + comp
+                + ". Prioritize engagement and shares over reach.";
+            case "YT" -> "YouTube: searchable titles, strong thumbnails, value-first content. Industry: "
+                + ind + ". Competitors: " + comp
+                + ". Win via tutorials and deep-dives that rank.";
+            case "ST" -> "Steam: authentic dev logs, community Q&A, showcase gameplay. Industry: "
+                + ind + ". Competitors: " + comp
+                + ". Build community trust through transparency.";
+            case "IT" -> "itch.io: indie dev story, dev logs, jam entries. Industry: "
+                + ind + ". Competitors: " + comp
+                + ". Stand out via distinctive art style and dev personality.";
+            case "GJ" -> "Game Jolt: fan engagement, update logs, screenshots/GIFs. Industry: "
+                + ind + ". Competitors: " + comp
+                + ". Win via frequent updates and community interaction.";
+            default -> null;
+        };
     }
 
     private String nvl(String s) { return s != null ? s : "N/A"; }

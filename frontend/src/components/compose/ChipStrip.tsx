@@ -7,9 +7,10 @@ interface ChipStripProps {
   activePlatformId: PlatformId
   onSelectPlatform: (id: PlatformId) => void
   enabledPlatforms: PlatformId[]
+  connectedPlatforms?: string[]
 }
 
-export function ChipStrip({ drafts, activePlatformId, onSelectPlatform, enabledPlatforms }: ChipStripProps) {
+export function ChipStrip({ drafts, activePlatformId, onSelectPlatform, enabledPlatforms, connectedPlatforms = [] }: ChipStripProps) {
   const visiblePlatforms = PLATFORMS.filter(p => enabledPlatforms.includes(p.id))
   return (
     <div
@@ -48,6 +49,7 @@ export function ChipStrip({ drafts, activePlatformId, onSelectPlatform, enabledP
             draft={drafts[platform.id]}
             isActive={platform.id === activePlatformId}
             onClick={() => onSelectPlatform(platform.id)}
+            isConnected={!connectedPlatforms.length || connectedPlatforms.includes(platform.id)}
           />
         ))}
       </div>

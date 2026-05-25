@@ -453,36 +453,43 @@ function ScheduledCard({
 function EmptyState({ onGoToCompose }: { onGoToCompose: () => void }) {
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '60px 24px', gap: 12,
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 16,
+      padding: '40px 24px',
+      textAlign: 'center',
     }}>
-      {/* Antenna icon */}
-      <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-        <circle cx="20" cy="20" r="4" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
-        <path d="M20 16V6" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M14 22l-6 6" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M26 22l6 6" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M10 10l6 8" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M30 10l-6 8" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Calendar icon */}
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <rect x="6" y="10" width="36" height="32" rx="4" stroke="rgba(255,255,255,0.15)" strokeWidth="2"/>
+        <path d="M6 18h36" stroke="rgba(255,255,255,0.15)" strokeWidth="2"/>
+        <rect x="14" y="6" width="4" height="8" rx="2" fill="rgba(255,255,255,0.3)"/>
+        <rect x="30" y="6" width="4" height="8" rx="2" fill="rgba(255,255,255,0.3)"/>
+        <circle cx="24" cy="30" r="3" fill="rgba(255,255,255,0.2)"/>
       </svg>
-      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-        Nothing scheduled
-      </span>
-      <span style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', textAlign: 'center', opacity: 0.7 }}>
-        Posts you schedule from Compose appear here.
-      </span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+          Nothing scheduled yet
+        </span>
+        <span style={{ fontSize: 14, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5, maxWidth: 260, display: 'block', margin: '0 auto' }}>
+          Generate posts in Compose, then schedule them to publish across your platforms automatically.
+        </span>
+      </div>
       <button
         onClick={onGoToCompose}
         style={{
-          background: 'none',
-          border: 'none',
-          color: 'var(--accent)',
+          background: 'var(--accent)',
+          color: '#fff',
+          borderRadius: 'var(--radius-button)',
+          padding: '12px 24px',
+          fontSize: 14,
+          fontWeight: 700,
           fontFamily: 'var(--font-body)',
-          fontSize: 13,
-          fontWeight: 600,
           cursor: 'pointer',
-          padding: 0,
-          marginTop: 2,
+          border: 'none',
         }}
       >
         Go to Compose →

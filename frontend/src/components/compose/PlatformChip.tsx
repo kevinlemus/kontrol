@@ -5,9 +5,10 @@ interface PlatformChipProps {
   draft: PlatformDraft
   isActive: boolean
   onClick: () => void
+  isConnected?: boolean
 }
 
-export function PlatformChip({ platform, draft, isActive, onClick }: PlatformChipProps) {
+export function PlatformChip({ platform, draft, isActive, onClick, isConnected = true }: PlatformChipProps) {
   const { status } = draft
 
   const isApproved = status === 'approved'
@@ -86,6 +87,28 @@ export function PlatformChip({ platform, draft, isActive, onClick }: PlatformChi
             <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
               <path d="M1.5 4.5l2 2 4-4" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
+          </div>
+        )}
+
+        {/* Not-connected badge */}
+        {!isConnected && (
+          <div style={{
+            position: 'absolute',
+            bottom: -4,
+            right: -4,
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            background: '#F59E0B',
+            color: '#000',
+            fontSize: 10,
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1.5px solid #000',
+          }}>
+            !
           </div>
         )}
 

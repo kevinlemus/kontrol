@@ -60,6 +60,10 @@ public class GenerationService {
             .contextSource(project.getContextSource())
             .build();
 
+        // Build per-platform competitor notes from existing project data — no extra Claude API call
+        projectContext.setPlatformCompetitorNotes(
+            claudeService.buildPlatformCompetitorNotes(projectContext, request.getPlatforms()));
+
         // Fetch performance insights per platform
         List<PerformanceInsightDto> insights = request.getPlatforms().stream()
             .map(pid -> performanceService.getInsightsForProject(projectId, pid))

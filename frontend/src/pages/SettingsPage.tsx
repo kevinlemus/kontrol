@@ -429,12 +429,12 @@ function BackButton({ onBack }: { onBack: () => void }) {
 function SettingsHeader({ onBack }: { onBack: () => void }) {
   return (
     <header style={{
-      minHeight: 'calc(52px + env(safe-area-inset-top))',
+      minHeight: 'calc(52px + max(env(safe-area-inset-top), 44px))',
       display: 'flex',
       alignItems: 'flex-end',
       justifyContent: 'space-between',
       padding: '0 16px',
-      paddingTop: 'env(safe-area-inset-top)',
+      paddingTop: 'max(env(safe-area-inset-top), 44px)',
       borderBottom: '1px solid rgba(255,255,255,0.05)',
       flexShrink: 0,
       background: 'var(--bg-base)',

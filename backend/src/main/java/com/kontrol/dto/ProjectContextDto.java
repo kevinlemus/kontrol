@@ -5,8 +5,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Map;
+
 /**
  * All project fields passed into Claude generation, including competitive intelligence.
+ * platformCompetitorNotes is transient — never persisted, computed at generation time.
  */
 @Data
 @Builder
@@ -24,4 +27,6 @@ public class ProjectContextDto {
     private String competitor3;
     private String projectContextText;
     private String contextSource;
+    /** Per-platform competitive notes. Key = platform code (e.g. "IG"), value = notes string. Transient — never persisted. */
+    private Map<String, String> platformCompetitorNotes;
 }
