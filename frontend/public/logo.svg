@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 96" width="460" height="96" font-family="Geist, system-ui, sans-serif">
+  <rect x="12" y="12" width="14" height="72" rx="1.5" fill="#FFFFFF"></rect>
+  <path d="M40.4,53.4 L81.4,13.7 L78.6,10.3 L31.6,42.6 Z" fill="#FFFFFF"></path>
+  <path d="M31.6,53.4 L78.6,85.7 L81.4,82.3 L40.4,42.6 Z" fill="#FFFFFF"></path>
+  <circle cx="36" cy="48" r="8.5" fill="#3B82F6"></circle>
+  <text x="115" y="74" font-size="75" font-weight="800" letter-spacing="-3.4" fill="#FFFFFF">Kontrol</text>
+</svg>

@@ -32,17 +32,11 @@ export default function OnboardingPage() {
       padding: '32px 24px 48px',
     }}>
       {/* Wordmark */}
-      <div style={{
-        fontFamily: 'var(--font-mono)',
-        fontWeight: 700,
-        fontSize: 18,
-        color: 'rgba(255,255,255,0.5)',
-        letterSpacing: 2,
-        textTransform: 'uppercase',
-        marginBottom: 48,
-      }}>
-        kontrol
-      </div>
+      <img
+        src="/logo.svg"
+        alt="Kontrol"
+        style={{ width: 160, height: 'auto', marginBottom: 48, opacity: 0.9 }}
+      />
 
       {/* Content panel */}
       <div style={{

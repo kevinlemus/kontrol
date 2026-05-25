@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.ico', 'favicon.svg', 'favicon-16x16.png', 'favicon-32x32.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Kontrol',
         short_name: 'Kontrol',
@@ -18,9 +18,11 @@ export default defineConfig({
         orientation: 'portrait',
         start_url: '/',
         icons: [
-          { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'favicon-32x32.png',  sizes: '32x32',   type: 'image/png' },
+          { src: 'favicon-64x64.png',  sizes: '64x64',   type: 'image/png' },
+          { src: 'icon-512.png',       sizes: '512x512', type: 'image/png' },
+          { src: 'icon-512.png',       sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'icon-1024.png',      sizes: '1024x1024', type: 'image/png' },
         ],
       },
       workbox: {

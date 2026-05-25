@@ -75,17 +75,11 @@ export default function RegisterPage() {
       padding: '0 24px',
     }}>
       {/* Wordmark */}
-      <div style={{
-        fontFamily: 'var(--font-mono)',
-        fontWeight: 700,
-        fontSize: 18,
-        color: 'rgba(255,255,255,0.5)',
-        letterSpacing: 2,
-        textTransform: 'uppercase',
-        marginBottom: 40,
-      }}>
-        kontrol
-      </div>
+      <img
+        src="/logo.svg"
+        alt="Kontrol"
+        style={{ width: 160, height: 'auto', marginBottom: 40, opacity: 0.9 }}
+      />
 
       {/* Heading */}
       <div style={{
