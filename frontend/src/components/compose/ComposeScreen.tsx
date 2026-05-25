@@ -15,6 +15,7 @@ import { generateApi } from '../../api/generate'
 import { performanceApi } from '../../api/performance'
 import { useAuth } from '../../contexts/AuthContext'
 import { projectsApi } from '../../api/projects'
+import { getConnectedPlatforms } from '../../api/platforms'
 import type { GenerateResponse, PerformanceInsightDto } from '../../api/types'
 
 const ALL_PLATFORM_IDS: PlatformId[] = ['IG', 'TT', 'LI', 'RD', 'X', 'FB', 'YT', 'ST', 'IT', 'GJ']
@@ -564,8 +565,11 @@ export function ComposeScreen() {
     setShowTip(false)
   }
 
-  // Re-derive enabled platforms from API project data
+  // Re-derive enabled platforms from API project data,
+  // then intersect with platforms that have a confirmed OAuth connection
+  const connectedPlatforms = getConnectedPlatforms()
   const enabledPlatforms = getEnabledPlatformsFromProject(activeStoredProject, state.projectName)
+    .filter(id => connectedPlatforms.includes(id))
 
   // Per-generation platform selection — defaults to all enabled platforms
   const [selectedPlatforms, setSelectedPlatforms] = useState<PlatformId[]>(enabledPlatforms)
@@ -1126,7 +1130,7 @@ export function ComposeScreen() {
               Posting to:
             </span>
             {/* Platform chips */}
-            <div style={{ display: 'flex', gap: 5, flex: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 5, flex: 1, flexWrap: 'nowrap', alignItems: 'center', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
               {selectedPlatforms.map(id => {
                 const plat = PLATFORM_MAP[id]
                 return (
@@ -1232,12 +1236,18 @@ export function ComposeScreen() {
           </div>
         )}
 
-        <ChipStrip
-          drafts={state.drafts}
-          activePlatformId={state.activePlatformId}
-          onSelectPlatform={handleSelectPlatform}
-          enabledPlatforms={selectedPlatforms}
-        />
+        {/* Only render chips for platforms enabled on this project */}
+        {(() => {
+          const visiblePlatforms = selectedPlatforms.filter(id => enabledPlatforms.includes(id))
+          return (
+            <ChipStrip
+              drafts={state.drafts}
+              activePlatformId={state.activePlatformId}
+              onSelectPlatform={handleSelectPlatform}
+              enabledPlatforms={visiblePlatforms}
+            />
+          )
+        })()}
       </div>
 
       {/* Active card — takes remaining space */}
@@ -1245,23 +1255,31 @@ export function ComposeScreen() {
         flex: 1,
         overflowY: 'auto',
         marginTop: -1,
+        minHeight: 420,
+        paddingBottom: 72,
       }}>
-        <ActiveCard
-          draft={activeDraft}
-          platform={activePlatform}
-          onContentChange={handleContentChange}
-          onTitleChange={handleTitleChange}
-          onTypeChange={handleTypeChange}
-          onApprove={handleApprove}
-          onRegenerate={handleRegenerate}
-          onSkip={handleSkip}
-          onDiscardBatch={handleDiscardBatch}
-          projectName={state.projectName}
-          projectId={activeProjectId ?? undefined}
-          onSubredditChange={handleSubredditChange}
-          insights={insights}
-          userName={userName}
-        />
+        {enabledPlatforms.length === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 14, fontFamily: 'var(--font-body)' }}>
+            Enable platforms in your project settings to start generating posts.
+          </div>
+        ) : (
+          <ActiveCard
+            draft={activeDraft}
+            platform={activePlatform}
+            onContentChange={handleContentChange}
+            onTitleChange={handleTitleChange}
+            onTypeChange={handleTypeChange}
+            onApprove={handleApprove}
+            onRegenerate={handleRegenerate}
+            onSkip={handleSkip}
+            onDiscardBatch={handleDiscardBatch}
+            projectName={state.projectName}
+            projectId={activeProjectId ?? undefined}
+            onSubredditChange={handleSubredditChange}
+            insights={insights}
+            userName={userName}
+          />
+        )}
       </div>
 
       {showSmartSchedule && (

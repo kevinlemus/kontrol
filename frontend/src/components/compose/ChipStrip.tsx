@@ -16,9 +16,11 @@ export function ChipStrip({ drafts, activePlatformId, onSelectPlatform, enabledP
       style={{
         display: 'flex',
         overflowX: 'auto',
+        flexWrap: 'nowrap',
         flexShrink: 0,
         // Hide scrollbar
         scrollbarWidth: 'none',
+        WebkitOverflowScrolling: 'touch',
         // Padding so chips don't clip on edges
         paddingLeft: 6,
         paddingRight: 6,

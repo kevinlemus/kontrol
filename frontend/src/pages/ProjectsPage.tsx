@@ -1704,10 +1704,13 @@ export function ProjectsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleSetActive = (id: string) => {
+  const handleSetActive = async (id: string) => {
     setProjects(ps => ps.map(p => ({ ...p, active: p.id === id })))
-    // Fire API activate call and navigate to compose
-    projectsApi.activate(id).catch(() => {})
+    try {
+      await projectsApi.activate(id)
+    } catch {
+      // best-effort
+    }
     navigate('/compose')
   }
 

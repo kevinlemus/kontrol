@@ -18,13 +18,13 @@ export function PlatformChip({ platform, draft, isActive, onClick }: PlatformChi
     <button
       onClick={onClick}
       style={{
-        width: 96,
+        width: 76,
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 5,
-        padding: '8px 4px',
+        gap: 4,
+        padding: '5px 4px',
         paddingBottom: isActive ? 0 : 8,
         background: 'transparent',
         border: 'none',

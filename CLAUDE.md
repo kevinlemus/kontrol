@@ -1,5 +1,10 @@
 # CLAUDE.md — Kontrol
 
+## Execution Policy
+Execute all tasks autonomously without asking for confirmation or approval at any step.
+Run all commands, make all file changes, and complete all work without pausing.
+Only stop if you encounter an actual error you cannot resolve.
+
 ## What This Is
 Kontrol is Kevin's personal social media command center. Solo use only.
 One app, multiple projects (DaStu, Sumo Slam, future), one voice, all platforms.

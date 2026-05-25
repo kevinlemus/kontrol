@@ -45,7 +45,6 @@ export function ActiveCard({
   userName,
 }: ActiveCardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
-  const [flash, setFlash] = useState(false)
   const originalContentRef = useRef<string>(draft.content)
   const { showToast } = useToast()
 
@@ -57,7 +56,6 @@ export function ActiveCard({
 
   useEffect(() => {
     originalContentRef.current = draft.content
-    setFlash(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.platformId])
 
@@ -86,7 +84,12 @@ export function ActiveCard({
     }
   }, [discardConfirm])
 
+  // No-op: voice tracking now fires on approve, not on intermediate edits
   const handleEditSaved = useCallback((_original: string, _edited: string) => {
+    // intentionally empty — tracking moved to handleApproveWithTracking
+  }, [])
+
+  const handleApproveWithTracking = useCallback(() => {
     try {
       const raw = localStorage.getItem('kontrol_voice_edits')
       const edits: Record<string, number> = (raw && !raw.startsWith('['))
@@ -95,9 +98,8 @@ export function ActiveCard({
       edits[draft.platformId] = (edits[draft.platformId] ?? 0) + 1
       localStorage.setItem('kontrol_voice_edits', JSON.stringify(edits))
     } catch {}
-    setFlash(true)
-    setTimeout(() => setFlash(false), 2200)
-  }, [draft.platformId])
+    onApprove()
+  }, [draft.platformId, onApprove])
 
   // Three-dot menu actions
   const handleSaveAsDraft = () => {
@@ -528,33 +530,9 @@ export function ActiveCard({
         </div>
       </div>
 
-      {flash && (
-        <div style={{
-          padding: '0 14px 6px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-        }}>
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '4px 12px',
-            borderRadius: 999,
-            background: 'rgba(30,215,96,0.12)',
-            border: '1px solid rgba(30,215,96,0.25)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 10.5,
-            color: '#1ED760',
-            letterSpacing: 0.2,
-          }}>
-            &#10003; saved to {platform.name} voice profile
-          </span>
-        </div>
-      )}
 
       <ActionRow
-        onApprove={onApprove}
+        onApprove={handleApproveWithTracking}
         onRegenerate={onRegenerate}
         onSkip={onSkip}
         desktop={desktop}
