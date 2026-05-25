@@ -1,6 +1,7 @@
 package com.kontrol.controller;
 
 import com.kontrol.service.ClaudeService;
+import com.kontrol.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,9 +23,17 @@ import java.util.Map;
 public class ProjectAnalysisController {
 
     private final ClaudeService claudeService;
+    private final JwtUtil jwtUtil;
 
     @PostMapping("/analyze-url")
-    public ResponseEntity<?> analyzeUrl(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> analyzeUrl(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Map<String, String> body) {
+        String token = jwtUtil.extractBearer(authHeader);
+        if (token == null || !jwtUtil.isValid(token)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+
         String url = body.get("url");
         if (url == null || url.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "url required"));

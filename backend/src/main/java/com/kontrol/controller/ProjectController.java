@@ -5,6 +5,7 @@ import com.kontrol.dto.ProjectDto;
 import com.kontrol.model.Project;
 import com.kontrol.repository.ProjectRepository;
 import com.kontrol.service.DocumentExtractorService;
+import com.kontrol.util.JwtUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class ProjectController {
 
     private final ProjectRepository projectRepository;
     private final DocumentExtractorService documentExtractorService;
+    private final JwtUtil jwtUtil;
 
     @GetMapping
     public ResponseEntity<List<ProjectDto>> listProjects() {
@@ -43,7 +45,13 @@ public class ProjectController {
     }
 
     @PostMapping
-    public ResponseEntity<ProjectDto> createProject(@RequestBody @Valid CreateProjectRequest req) {
+    public ResponseEntity<?> createProject(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody @Valid CreateProjectRequest req) {
+        String token = jwtUtil.extractBearer(authHeader);
+        if (token == null || !jwtUtil.isValid(token)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
         Project p = Project.builder()
             .name(req.getName()).whatItIs(req.getWhatItIs())
             .whoItsFor(req.getWhoItsFor()).vibe(req.getVibe())
@@ -57,8 +65,14 @@ public class ProjectController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProjectDto> updateProject(@PathVariable UUID id,
-                                                     @RequestBody CreateProjectRequest req) {
+    public ResponseEntity<?> updateProject(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable UUID id,
+            @RequestBody CreateProjectRequest req) {
+        String token = jwtUtil.extractBearer(authHeader);
+        if (token == null || !jwtUtil.isValid(token)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
         return projectRepository.findById(id).map(p -> {
             p.setName(req.getName()); p.setWhatItIs(req.getWhatItIs());
             p.setWhoItsFor(req.getWhoItsFor()); p.setVibe(req.getVibe());
@@ -67,12 +81,18 @@ public class ProjectController {
             p.setCompetitor3(req.getCompetitor3()); p.setIndustry(req.getIndustry());
             p.setProjectContextText(req.getProjectContextText());
             p.setContextSource(req.getContextSource());
-            return ResponseEntity.ok(toDto(projectRepository.save(p)));
+            return ResponseEntity.ok((Object) toDto(projectRepository.save(p)));
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @PatchMapping("/{id}/activate")
-    public ResponseEntity<Void> activate(@PathVariable UUID id) {
+    public ResponseEntity<?> activate(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable UUID id) {
+        String token = jwtUtil.extractBearer(authHeader);
+        if (token == null || !jwtUtil.isValid(token)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
         projectRepository.findAll().forEach(p -> {
             p.setActive(p.getId().equals(id));
             projectRepository.save(p);
@@ -81,7 +101,13 @@ public class ProjectController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+    public ResponseEntity<?> delete(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable UUID id) {
+        String token = jwtUtil.extractBearer(authHeader);
+        if (token == null || !jwtUtil.isValid(token)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
         projectRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
@@ -92,8 +118,13 @@ public class ProjectController {
     // Extracts text, appends to project.projectContextText, saves
     @PostMapping(value = "/{projectId}/upload-context", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadContext(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable UUID projectId,
             @RequestParam("files") List<MultipartFile> files) {
+        String token = jwtUtil.extractBearer(authHeader);
+        if (token == null || !jwtUtil.isValid(token)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
 
         return projectRepository.findById(projectId)
                 .map(project -> {
@@ -146,8 +177,13 @@ public class ProjectController {
     // Accepts a single multipart file, extracts text, appends to projectContextText.
     @PostMapping(value = "/{projectId}/context-document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadContextDocument(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable UUID projectId,
             @RequestParam("file") MultipartFile file) {
+        String token = jwtUtil.extractBearer(authHeader);
+        if (token == null || !jwtUtil.isValid(token)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
 
         if (file.getSize() > 10L * 1024 * 1024) {
             return ResponseEntity.badRequest()
@@ -185,8 +221,13 @@ public class ProjectController {
     // Replaces projectContextText with the provided text body.
     @PutMapping("/{projectId}/context-text")
     public ResponseEntity<?> updateContextText(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable UUID projectId,
             @RequestBody Map<String, String> body) {
+        String token = jwtUtil.extractBearer(authHeader);
+        if (token == null || !jwtUtil.isValid(token)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
 
         return projectRepository.findById(projectId)
                 .map(project -> {

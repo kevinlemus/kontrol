@@ -127,9 +127,15 @@ async function uploadSingleDocument(
 ): Promise<{ characters: number }> {
   const formData = new FormData()
   formData.append('file', file)
+  const token = localStorage.getItem('kontrol_auth')
+    ? (JSON.parse(localStorage.getItem('kontrol_auth')!) as { token?: string }).token : null
   const resp = await fetch(
     `${BASE_URL}/api/v1/projects/${projectId}/context-document`,
-    { method: 'POST', body: formData }
+    {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    }
   )
   return resp.json() as Promise<{ characters: number }>
 }
@@ -152,11 +158,15 @@ async function saveContextText(
   projectId: string,
   text: string
 ): Promise<void> {
+  const ctxRaw = localStorage.getItem('kontrol_auth')
+  const ctxToken = ctxRaw ? (JSON.parse(ctxRaw) as { token?: string }).token : null
+  const ctxHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (ctxToken) ctxHeaders['Authorization'] = `Bearer ${ctxToken}`
   await fetch(
     `${BASE_URL}/api/v1/projects/${projectId}/context-text`,
     {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: ctxHeaders,
       body: JSON.stringify({ text }),
     }
   )

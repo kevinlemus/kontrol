@@ -6,6 +6,10 @@ export interface ApiProject {
   vibe: string | null
   currentStatus: string | null
   active: boolean
+  industry?: string | null
+  competitor1?: string | null
+  competitor2?: string | null
+  competitor3?: string | null
 }
 
 export interface ApiDraft {

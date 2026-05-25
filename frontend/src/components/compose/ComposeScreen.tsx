@@ -15,17 +15,13 @@ import { generateApi } from '../../api/generate'
 import { performanceApi } from '../../api/performance'
 import { useAuth } from '../../contexts/AuthContext'
 import { projectsApi } from '../../api/projects'
-import { getConnectedPlatforms } from '../../api/platforms'
 import { connectionsApi } from '../../api/connections'
 import type { GenerateResponse, PerformanceInsightDto } from '../../api/types'
 
 const ALL_PLATFORM_IDS: PlatformId[] = ['IG', 'TT', 'LI', 'RD', 'X', 'FB', 'YT', 'ST', 'IT', 'GJ']
 
 // Fallback platform lists when a project has no platform config
-const PLATFORM_FALLBACKS: Record<string, PlatformId[]> = {
-  'DaStu':     ['IG', 'TT', 'LI', 'RD', 'YT'],
-  'Sumo Slam': ['IG', 'TT', 'RD', 'X', 'YT', 'ST', 'IT', 'GJ'],
-}
+const PLATFORM_FALLBACKS: Record<string, PlatformId[]> = {}
 
 interface StoredProject {
   id: string
@@ -54,13 +50,12 @@ function getEnabledPlatformsFromProject(project: StoredProject | null, projectNa
 
 // ─── Project color helpers ────────────────────────────────────────────────────
 
-const PROJECT_DOT_COLORS: Record<string, string> = {
-  'DaStu': '#3B82F6',
-  'Sumo Slam': '#1ED760',
-}
+const DOT_PALETTE = ['#3B82F6', '#1ED760', '#F59E0B', '#EC4899', '#8B5CF6', '#06B6D4', '#F97316']
 
 function getProjectDotColor(name: string): string {
-  return PROJECT_DOT_COLORS[name] ?? '#888'
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h)
+  return DOT_PALETTE[Math.abs(h) % DOT_PALETTE.length]
 }
 
 // ─── Project Switcher Dropdown ────────────────────────────────────────────────
@@ -590,11 +585,8 @@ export function ComposeScreen() {
     setShowTip(false)
   }
 
-  // Re-derive enabled platforms from API project data,
-  // then intersect with platforms that have a confirmed OAuth connection
-  const localConnectedPlatforms = getConnectedPlatforms()
+  // Re-derive enabled platforms from API project data
   const enabledPlatforms = getEnabledPlatformsFromProject(activeStoredProject, state.projectName)
-    .filter(id => localConnectedPlatforms.includes(id))
 
   // Per-generation platform selection — defaults to all enabled platforms
   const [selectedPlatforms, setSelectedPlatforms] = useState<PlatformId[]>(enabledPlatforms)
@@ -664,74 +656,68 @@ export function ComposeScreen() {
   const handleGenerate = useCallback(async () => {
     setGenerating(true)
 
-    // Try real API first — fall back to mock on failure
-    try {
-      const active = apiProjects.find(p => p.active)
-      if (active?.id && active.id !== 'local') {
-        const resp: GenerateResponse = await generateApi.generate({
-          projectId: active.id,
-          prompt: state.prompt,
-          platforms: selectedPlatforms,
-        })
-        // Build new drafts from API response
-        const newDrafts = { ...state.drafts }
-        for (const [pid, apiDraft] of Object.entries(resp.drafts)) {
-          const platformId = pid as PlatformId
-          newDrafts[platformId] = {
-            ...newDrafts[platformId],
-            content: apiDraft.content,
-            title: apiDraft.title ?? newDrafts[platformId]?.title ?? '',
-            subreddit: apiDraft.selectedSubreddit ?? newDrafts[platformId]?.subreddit,
-            subredditReasoning: apiDraft.subredditReasoning ?? newDrafts[platformId]?.subredditReasoning,
-            status: 'pending' as const,
-            postPlatformId: apiDraft.postPlatformId ?? undefined,
-            hook: apiDraft.hook ?? undefined,
-          }
-        }
-
-        if (resp.insights) setInsights(resp.insights)
-
-        // Store postPlatformIds per platform
-        const ids: Record<string, string> = {}
-        const originals: Record<string, string> = {}
-        Object.entries(resp.drafts).forEach(([pid, apiDraft]) => {
-          if (apiDraft.postPlatformId) ids[pid] = apiDraft.postPlatformId
-          originals[pid] = apiDraft.content
-        })
-        setPostPlatformIds(ids)
-        setOriginalContents(originals)
-
-        setGenerating(false)
-        setState(prev => ({
-          ...prev,
-          drafts: newDrafts,
-          generated: true,
-        }))
-        return // Success — don't run mock fallback
-      }
-    } catch {
-      // Backend unavailable or project is local-only — fall through to mock behavior
+    const active = apiProjects.find(p => p.active)
+    if (!active?.id || active.id === 'local') {
+      showToast('Select a project before generating')
+      setGenerating(false)
+      return
     }
 
-    // Mock fallback
-    setInsights([])
-    setPostPlatformIds({})
-    setOriginalContents({})
-    setTimeout(() => {
-      setGenerating(false)
-      setState(prev => {
-        const newDrafts = { ...prev.drafts }
-        // Set mock subreddit for RD draft
-        if (newDrafts.RD) {
-          newDrafts.RD = {
-            ...newDrafts.RD,
-            subreddit: 'bedroomproducers',
-            subredditReasoning: 'Best fit — content matches this vocal production community',
-          }
-        }
-        return { ...prev, drafts: newDrafts, generated: true }
+    try {
+      const resp: GenerateResponse = await generateApi.generate({
+        projectId: active.id,
+        prompt: state.prompt,
+        platforms: selectedPlatforms,
       })
-    }, 1800)
+      // Build new drafts from API response
+      const newDrafts = { ...state.drafts }
+      for (const [pid, apiDraft] of Object.entries(resp.drafts)) {
+        const platformId = pid as PlatformId
+        newDrafts[platformId] = {
+          ...newDrafts[platformId],
+          content: apiDraft.content,
+          title: apiDraft.title ?? newDrafts[platformId]?.title ?? '',
+          subreddit: apiDraft.selectedSubreddit ?? newDrafts[platformId]?.subreddit,
+          subredditReasoning: apiDraft.subredditReasoning ?? newDrafts[platformId]?.subredditReasoning,
+          status: 'pending' as const,
+          postPlatformId: apiDraft.postPlatformId ?? undefined,
+          hook: apiDraft.hook ?? undefined,
+        }
+      }
+
+      if (resp.insights) setInsights(resp.insights)
+
+      // Store postPlatformIds per platform
+      const ids: Record<string, string> = {}
+      const originals: Record<string, string> = {}
+      Object.entries(resp.drafts).forEach(([pid, apiDraft]) => {
+        if (apiDraft.postPlatformId) ids[pid] = apiDraft.postPlatformId
+        originals[pid] = apiDraft.content
+      })
+      setPostPlatformIds(ids)
+      setOriginalContents(originals)
+
+      setGenerating(false)
+      setState(prev => ({
+        ...prev,
+        drafts: newDrafts,
+        generated: true,
+      }))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Generation failed'
+      let displayMsg = msg
+      if (msg.startsWith('API ')) {
+        const jsonStart = msg.indexOf('{')
+        if (jsonStart !== -1) {
+          try {
+            const parsed = JSON.parse(msg.slice(jsonStart)) as { error?: string }
+            if (parsed.error) displayMsg = parsed.error
+          } catch { /* use original */ }
+        }
+      }
+      showToast(`Generate failed — ${displayMsg}`)
+      setGenerating(false)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.prompt, state.drafts, selectedPlatforms, apiProjects])
 

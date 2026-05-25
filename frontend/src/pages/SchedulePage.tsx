@@ -51,61 +51,24 @@ const PLATFORM_GRADIENTS: Record<PlatformKey, string> = {
   GJ: 'linear-gradient(135deg, #2F7F3E, #45B069)',
 }
 
-const INITIAL_POSTS: ScheduledPost[] = [
-  {
-    id: 's1',
-    projectName: 'DaStu',
-    projectAccent: 'linear-gradient(135deg, #FF4500, #FF6534)',
-    platforms: ['IG', 'TT'],
-    scheduledAt: '2026-05-24T10:00:00',
-    content: "built somethin raw last night. voice memo into melody into this no samples, no templates. just the phone and the vibe.",
-    status: 'pending',
-    source: 'smart',
-  },
-  {
-    id: 's2',
-    projectName: 'Sumo Slam',
-    projectAccent: 'linear-gradient(135deg, #1B2838, #2A475E)',
-    platforms: ['ST', 'IT', 'GJ'],
-    scheduledAt: '2026-05-26T14:00:00',
-    content: "Devlog #13 dropping soon — character #12 finally revealed. 12/12. roster complete. art phase wrapping up.",
-    status: 'pending',
-    source: 'smart',
-  },
-  {
-    id: 's3',
-    projectName: 'DaStu',
-    projectAccent: 'linear-gradient(135deg, #FF4500, #FF6534)',
-    platforms: ['RD'],
-    scheduledAt: '2026-05-28T12:00:00',
-    content: "Just started using AI to help write better hooks and it's actually changing how I approach sessions...",
-    status: 'pending',
-    source: 'manual',
-  },
-  {
-    id: 's4',
-    projectName: 'Sumo Slam',
-    projectAccent: 'linear-gradient(135deg, #1B2838, #2A475E)',
-    platforms: ['IG', 'X'],
-    scheduledAt: '2026-05-30T09:30:00',
-    content: "new character teaser dropping this week party brawler season incoming",
-    status: 'pending',
-    source: 'manual',
-  },
-]
+function getCurrentWeek(): { label: string; date: number; iso: string }[] {
+  const today = new Date()
+  const dayOfWeek = today.getDay() // 0=Sun, 1=Mon...
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - ((dayOfWeek === 0 ? 7 : dayOfWeek) - 1))
+  return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return {
+      label,
+      date: d.getDate(),
+      iso: d.toISOString().slice(0, 10),
+    }
+  })
+}
 
-// Today: May 23, 2026 (Saturday). Week: May 18–24, 2026
-const WEEK_DAYS = [
-  { label: 'Mon', date: 18, iso: '2026-05-18' },
-  { label: 'Tue', date: 19, iso: '2026-05-19' },
-  { label: 'Wed', date: 20, iso: '2026-05-20' },
-  { label: 'Thu', date: 21, iso: '2026-05-21' },
-  { label: 'Fri', date: 22, iso: '2026-05-22' },
-  { label: 'Sat', date: 23, iso: '2026-05-23' },
-  { label: 'Sun', date: 24, iso: '2026-05-24' },
-]
-
-const TODAY_ISO = '2026-05-23'
+const WEEK_DAYS = getCurrentWeek()
+const TODAY_ISO = new Date().toISOString().slice(0, 10)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -505,7 +468,7 @@ function EmptyState({ onGoToCompose }: { onGoToCompose: () => void }) {
 
 export function SchedulePage() {
   const navigate = useNavigate()
-  const [posts, setPosts] = useState<ScheduledPost[]>(INITIAL_POSTS)
+  const [posts, setPosts] = useState<ScheduledPost[]>([])
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [showLegend, setShowLegend] = useState(false)
   const [scheduleTiming, setScheduleTiming] = useState<SmartScheduleTimingDto | null>(null)
@@ -839,7 +802,7 @@ export function SchedulePage() {
         {selectedDay && displayedPosts.length === 0 && (
           <EmptyState onGoToCompose={() => navigate('/compose')} />
         )}
-        {!selectedDay && posts.length === 0 && (
+        {!selectedDay && posts.length === 0 && smartBatches.length === 0 && (
           <EmptyState onGoToCompose={() => navigate('/compose')} />
         )}
 
