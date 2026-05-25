@@ -83,9 +83,7 @@ function ConnectModal({ platform, projectId, onClose }: {
   onClose: () => void
 }) {
   const oauthPath = PLATFORM_OAUTH_PATH[platform.key] ?? platform.key.toLowerCase()
-  const authorizeUrl = projectId
-    ? `${BASE}/api/v1/oauth/${oauthPath}/authorize?project_id=${projectId}`
-    : null
+  const authorizeUrl = `${BASE}/api/v1/oauth/${oauthPath}/authorize${projectId ? `?project_id=${projectId}` : ''}`
 
   return (
     <>
@@ -626,7 +624,7 @@ function MyProfileSection() {
     setEmailError('')
     setEmailOk(false)
     try {
-      await authApi.updateSettings({ email })
+      await authApi.updateSettings({ email, currentPassword: emailCurrentPw || undefined })
       updateUser({ email })
       setEmailOk(true)
       setEmailDirty(false)

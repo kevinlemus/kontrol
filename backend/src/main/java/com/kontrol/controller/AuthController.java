@@ -120,9 +120,16 @@ public class AuthController {
         if (voiceProfile == null) voiceProfile = (String) body.get("voice_profile");
         Boolean onboardingCompleted = body.get("onboardingCompleted") instanceof Boolean b ? b
             : body.get("onboarding_completed") instanceof Boolean b2 ? b2 : null;
-        UserSettingsDto updated = userSettingsService.updateSettings(
-            userId, name, email, voiceProfile, onboardingCompleted);
-        return ResponseEntity.ok(updated);
+        // Required when email is changing
+        String currentPassword = (String) body.get("currentPassword");
+        if (currentPassword == null) currentPassword = (String) body.get("current_password");
+        try {
+            UserSettingsDto updated = userSettingsService.updateSettings(
+                userId, name, email, voiceProfile, onboardingCompleted, currentPassword);
+            return ResponseEntity.ok(updated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     // BACKEND-AGENT: PUT /api/v1/auth/password complete

@@ -85,7 +85,23 @@ public class UserSettingsService {
 
     public UserSettingsDto updateSettings(UUID userId, String name, String email,
                                           String voiceProfile, Boolean onboardingCompleted) {
+        return updateSettings(userId, name, email, voiceProfile, onboardingCompleted, null);
+    }
+
+    /**
+     * Updates user settings. When {@code email} differs from the stored value, {@code currentPassword}
+     * must be non-null and must match the stored bcrypt hash; otherwise an IllegalArgumentException
+     * is thrown so the controller can return a 400.
+     */
+    public UserSettingsDto updateSettings(UUID userId, String name, String email,
+                                          String voiceProfile, Boolean onboardingCompleted,
+                                          String currentPassword) {
         UserSettings u = getById(userId);
+        if (email != null && !email.equals(u.getEmail())) {
+            if (currentPassword == null || !bcrypt.matches(currentPassword, u.getPasswordHash())) {
+                throw new IllegalArgumentException("Current password required to change email");
+            }
+        }
         if (name != null) u.setName(name);
         if (email != null) u.setEmail(email);
         if (voiceProfile != null) u.setVoiceProfile(voiceProfile);

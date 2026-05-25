@@ -60,6 +60,7 @@ export const authApi = {
   updateSettings: (data: {
     name?: string
     email?: string
+    currentPassword?: string
     voiceProfile?: string
     onboardingCompleted?: boolean
   }) =>
