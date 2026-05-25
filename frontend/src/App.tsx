@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { BottomNav } from './components/shared/BottomNav'
 import { ToastProvider } from './components/shared/Toast'
@@ -57,6 +58,29 @@ function AppShell() {
 }
 
 export default function App() {
+  // Clear any localStorage entries that contain non-UUID project IDs (legacy slug format)
+  useEffect(() => {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const KEYS_TO_CHECK = ['kontrol_projects', 'kontrol_active_project', 'kontrol_drafts']
+    for (const key of KEYS_TO_CHECK) {
+      try {
+        const raw = localStorage.getItem(key)
+        if (!raw) continue
+        const parsed = JSON.parse(raw)
+        // If it's an array with an id field that isn't a UUID, clear it
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && !UUID_RE.test(parsed[0].id)) {
+          localStorage.removeItem(key)
+        }
+        // If it's a string that looks like a slug (contains letters and hyphens, no UUID format), clear it
+        if (typeof parsed === 'string' && !UUID_RE.test(parsed)) {
+          localStorage.removeItem(key)
+        }
+      } catch {
+        localStorage.removeItem(key)
+      }
+    }
+  }, [])
+
   return (
     <AuthProvider>
       <AppShell />

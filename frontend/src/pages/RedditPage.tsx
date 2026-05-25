@@ -37,53 +37,9 @@ interface Suggestion {
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
 const PROJECT_ACCENTS: Record<string, string> = {
-  dastu: 'linear-gradient(135deg, #FF4500, #FF6534)',
-  'sumo-slam': 'linear-gradient(135deg, #1B2838, #2A475E)',
+  'DaStu': 'linear-gradient(135deg, #FF4500, #FF6534)',
+  'Sumo Slam': 'linear-gradient(135deg, #1B2838, #2A475E)',
 }
-
-const INITIAL_SUBREDDITS: Subreddit[] = [
-  { id: 'sr1', projectId: 'dastu',     projectName: 'DaStu',     subreddit: 'r/WeAreTheMusicMakers', active: true },
-  { id: 'sr2', projectId: 'dastu',     projectName: 'DaStu',     subreddit: 'r/bedroomproducers',    active: true },
-  { id: 'sr3', projectId: 'sumo-slam', projectName: 'Sumo Slam', subreddit: 'r/IndieDev',            active: true },
-  { id: 'sr4', projectId: 'sumo-slam', projectName: 'Sumo Slam', subreddit: 'r/indiegaming',         active: false },
-]
-
-const INITIAL_SUGGESTIONS: Suggestion[] = [
-  {
-    id: 'sg1',
-    projectName: 'DaStu',
-    projectAccent: 'linear-gradient(135deg, #FF4500, #FF6534)',
-    subreddit: 'r/WeAreTheMusicMakers',
-    postTitle: 'I finally recorded my first real vocal take and it sounds terrible',
-    postUrl: 'https://reddit.com/r/WeAreTheMusicMakers/comments/example1',
-    suggestedComment: "honestly this is the most relatable post i've seen all week lol. the first few takes always feel off because your monitoring setup is lying to you — most budget interfaces and headphones hype the low-mids. been working on something that might help: DaStu is an AI vocal studio built specifically for phone recordings. it cleans up the signal, adjusts for bedroom acoustics, and helps you comp takes without needing a full DAW. still in early access but worth checking out if you're recording on your phone: [link]. either way don't give up on the take — the performance always matters more than the gear.",
-    status: 'pending',
-    createdAt: '2026-05-23T06:15:00',
-  },
-  {
-    id: 'sg2',
-    projectName: 'DaStu',
-    projectAccent: 'linear-gradient(135deg, #FF4500, #FF6534)',
-    subreddit: 'r/bedroomproducers',
-    postTitle: "Any apps that can actually clean up phone recordings? Audacity just isn't cutting it",
-    postUrl: 'https://reddit.com/r/bedroomproducers/comments/example2',
-    suggestedComment: "yeah audacity is powerful but it wasn't designed for the phone-recording workflow. been building DaStu specifically for this — AI-assisted vocal cleanup tuned for bedroom/phone acoustics. not a generic noise reducer, it understands context (plosives vs background hum vs room reverb) and handles them separately. in early access now if you want to try it: [link]. the goal was to make something a bedroom artist can use mid-session on their phone without switching apps.",
-    status: 'pending',
-    createdAt: '2026-05-23T08:42:00',
-  },
-  {
-    id: 'sg3',
-    projectName: 'DaStu',
-    projectAccent: 'linear-gradient(135deg, #FF4500, #FF6534)',
-    subreddit: 'r/WeAreTheMusicMakers',
-    postTitle: "How do you manage vocal comping on a budget? Pro Tools is way too expensive",
-    postUrl: 'https://reddit.com/r/WeAreTheMusicMakers/comments/example3',
-    suggestedComment: "comping on a budget is rough — most tools that do it well are buried in expensive DAWs. i've been building something called DaStu that's mobile-first and focuses on exactly this: record multiple takes on your phone, AI picks the best phrases, you swipe to approve or swap. no computer needed. still in early access but actively adding features — might be worth a look if you're trying to stay in the phone workflow: [link]",
-    status: 'posted',
-    createdAt: '2026-05-22T14:30:00',
-    postedAt: '2026-05-22T14:35:00',
-  },
-]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -137,7 +93,7 @@ function SubredditRow({
       }}>
         <span style={{
           width: 8, height: 8, borderRadius: '50%',
-          background: PROJECT_ACCENTS[item.projectId] ?? 'var(--bg-active)',
+          background: PROJECT_ACCENTS[item.projectName] ?? 'var(--bg-active)',
           flexShrink: 0,
         }} />
         {item.projectName}
@@ -431,12 +387,13 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
 
 export function RedditPage() {
   const { showToast } = useToast()
-  const [subreddits, setSubreddits] = useState<Subreddit[]>(INITIAL_SUBREDDITS)
-  const [suggestions, setSuggestions] = useState<Suggestion[]>(INITIAL_SUGGESTIONS)
+  const [subreddits, setSubreddits] = useState<Subreddit[]>([])
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [filterTab, setFilterTab] = useState<FilterTab>('all')
   const [newSubreddit, setNewSubreddit] = useState('')
   const checkNowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+  const [activeProjectName, setActiveProjectName] = useState<string | null>(null)
 
   // Load active project ID from API on mount
   useEffect(() => {
@@ -444,6 +401,7 @@ export function RedditPage() {
       .then(list => {
         const active = list.find(p => p.active)
         setActiveProjectId(active?.id ?? null)
+        setActiveProjectName(active?.name ?? null)
       })
       .catch(() => {})
   }, [])
@@ -451,24 +409,24 @@ export function RedditPage() {
   // Fetch real suggestions from API when active project is known
   useEffect(() => {
     if (!activeProjectId) return
+    // Find the project name for accent lookup
+    const projectName = activeProjectName ?? ''
     redditApi.getSuggestions(activeProjectId)
       .then(apiSuggestions => {
-        if (apiSuggestions.length > 0) {
-          setSuggestions(apiSuggestions.map(s => ({
-            id: s.id,
-            projectName: 'DaStu',
-            projectAccent: 'linear-gradient(135deg, #FF4500, #FF6534)',
-            subreddit: s.subreddit,
-            postTitle: s.redditPostTitle,
-            postUrl: s.redditPostUrl,
-            suggestedComment: s.suggestedComment,
-            status: s.status,
-            createdAt: new Date().toISOString(),
-            postedAt: undefined,
-          })))
-        }
+        setSuggestions(apiSuggestions.map(s => ({
+          id: s.id,
+          projectName,
+          projectAccent: PROJECT_ACCENTS[projectName] ?? 'var(--bg-active)',
+          subreddit: s.subreddit,
+          postTitle: s.redditPostTitle,
+          postUrl: s.redditPostUrl,
+          suggestedComment: s.suggestedComment,
+          status: s.status,
+          createdAt: new Date().toISOString(),
+          postedAt: undefined,
+        })))
       })
-      .catch(() => { /* keep mock data */ })
+      .catch(() => { /* backend offline — empty state already shown */ })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjectId])
 
@@ -492,8 +450,8 @@ export function RedditPage() {
     const formatted = val.startsWith('r/') ? val : `r/${val}`
     setSubreddits(ss => [...ss, {
       id: `sr-${Date.now()}`,
-      projectId: 'dastu',
-      projectName: 'DaStu',
+      projectId: activeProjectId ?? '',
+      projectName: activeProjectName ?? '',
       subreddit: formatted,
       active: true,
     }])

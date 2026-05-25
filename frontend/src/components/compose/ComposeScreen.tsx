@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ComposeState, PlatformId, PostType } from './types'
-import { MOCK_DRAFTS, PLATFORM_MAP, PLATFORMS } from './mockData'
+import { PLATFORM_MAP, PLATFORMS } from './mockData'
 import { InputBlock } from './InputBlock'
 import { GenerateButton } from './GenerateButton'
 import { BatchStatusBar } from './BatchStatusBar'
@@ -493,12 +493,12 @@ function useComposeLayout() {
 
 function buildInitialState(): ComposeState {
   return {
-    projectName: 'DaStu',
+    projectName: '',
     prompt: '',
     mediaUrl: null,
-    activePlatformId: 'RD',
-    drafts: { ...MOCK_DRAFTS },
-    generated: true,
+    activePlatformId: 'IG',
+    drafts: {} as Record<string, never> as ComposeState['drafts'],
+    generated: false,
   }
 }
 
@@ -515,6 +515,7 @@ export function ComposeScreen() {
 
   // API-driven project list
   const [apiProjects, setApiProjects] = useState<StoredProject[]>([])
+  const [projectsReady, setProjectsReady] = useState(false)
 
   // Load projects from API on mount
   useEffect(() => {
@@ -538,9 +539,11 @@ export function ComposeScreen() {
         if (active) {
           setState(prev => ({ ...prev, projectName: active.name }))
         }
+        setProjectsReady(true)
       })
       .catch(() => {
         // Backend offline — keep current state
+        setProjectsReady(true)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -898,26 +901,34 @@ export function ComposeScreen() {
             </div>
           )}
 
-          {/* Input + voice row */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <InputBlock
-              prompt={state.prompt}
-              onPromptChange={p => setState(prev => ({ ...prev, prompt: p }))}
-              mediaUrl={state.mediaUrl}
-              onMediaDrop={url => setState(prev => ({ ...prev, mediaUrl: url }))}
-              desktop
-            />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 2 }}>
-              <VoiceInput onTranscript={handleVoiceTranscript} />
+          {/* Input + voice row — or empty state if no projects */}
+          {projectsReady && apiProjects.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 14, fontFamily: 'var(--font-body)' }}>
+              Create a project first to start generating posts.
             </div>
-          </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <InputBlock
+                  prompt={state.prompt}
+                  onPromptChange={p => setState(prev => ({ ...prev, prompt: p }))}
+                  mediaUrl={state.mediaUrl}
+                  onMediaDrop={url => setState(prev => ({ ...prev, mediaUrl: url }))}
+                  desktop
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 2 }}>
+                  <VoiceInput onTranscript={handleVoiceTranscript} />
+                </div>
+              </div>
 
-          <GenerateButton
-            onGenerate={handleGenerate}
-            generating={generating}
-            desktop
-            platformCount={selectedPlatforms.length}
-          />
+              <GenerateButton
+                onGenerate={handleGenerate}
+                generating={generating}
+                desktop
+                platformCount={selectedPlatforms.length}
+              />
+            </>
+          )}
 
           <BatchStatusBar
             drafts={state.drafts}
@@ -1078,18 +1089,24 @@ export function ComposeScreen() {
           </div>
         )}
 
-        {/* Input + voice row */}
-        <div>
-          <InputBlock
-            prompt={state.prompt}
-            onPromptChange={p => setState(prev => ({ ...prev, prompt: p }))}
-            mediaUrl={state.mediaUrl}
-            onMediaDrop={url => setState(prev => ({ ...prev, mediaUrl: url }))}
-          />
-          <div style={{ display: 'flex', alignItems: 'center', padding: '0 14px 10px', gap: 8 }}>
-            <VoiceInput onTranscript={handleVoiceTranscript} />
+        {/* Input + voice row — or empty state if no projects */}
+        {projectsReady && apiProjects.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 14, fontFamily: 'var(--font-body)' }}>
+            Create a project first to start generating posts.
           </div>
-        </div>
+        ) : (
+          <div>
+            <InputBlock
+              prompt={state.prompt}
+              onPromptChange={p => setState(prev => ({ ...prev, prompt: p }))}
+              mediaUrl={state.mediaUrl}
+              onMediaDrop={url => setState(prev => ({ ...prev, mediaUrl: url }))}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0 14px 10px', gap: 8 }}>
+              <VoiceInput onTranscript={handleVoiceTranscript} />
+            </div>
+          </div>
+        )}
 
         {/* Platform summary row — mobile only */}
         <div style={{ padding: '0 14px 10px' }}>

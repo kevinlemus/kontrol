@@ -90,55 +90,6 @@ const DEFAULT_PLATFORMS: Record<PlatformKey, PlatformConfig> = ALL_PLATFORM_KEYS
   {} as Record<PlatformKey, PlatformConfig>
 )
 
-const INITIAL_PROJECTS: Project[] = [
-  {
-    id: 'dastu',
-    name: 'DaStu',
-    accent: 'linear-gradient(135deg, #FF4500, #FF6534)',
-    whatItIs: 'AI vocal studio for bedroom musicians',
-    whoItsFor: 'Bedroom rappers & R´B singers on phones',
-    vibe: 'Raw, real, built by someone who makes music',
-    currentStatus: 'Sprint 1 — building Python audio microservice',
-    active: true,
-    personas: DEFAULT_PERSONAS,
-    platforms: {
-      IG: { enabled: true,  credentialStatus: 'connected',     persona_id: 'personal' },
-      TT: { enabled: true,  credentialStatus: 'pending',       persona_id: 'personal' },
-      LI: { enabled: true,  credentialStatus: 'connected',     persona_id: 'brand' },
-      RD: { enabled: true,  credentialStatus: 'connected',     persona_id: 'personal' },
-      X:  { enabled: false, credentialStatus: 'not_connected', persona_id: 'personal' },
-      FB: { enabled: false, credentialStatus: 'not_connected', persona_id: 'brand' },
-      YT: { enabled: true,  credentialStatus: 'not_connected', persona_id: 'brand' },
-      ST: { enabled: false, credentialStatus: 'not_connected', persona_id: 'brand' },
-      IT: { enabled: false, credentialStatus: 'not_connected', persona_id: 'brand' },
-      GJ: { enabled: false, credentialStatus: 'not_connected', persona_id: 'brand' },
-    },
-  },
-  {
-    id: 'sumo-slam',
-    name: 'Sumo Slam',
-    accent: 'linear-gradient(135deg, #1B2838, #2A475E)',
-    whatItIs: 'Arcade party brawler going to Steam/Switch/itch.io',
-    whoItsFor: 'Party gamers, indie game fans',
-    vibe: 'Fun, chaotic, Nintendo-polish quality bar',
-    currentStatus: 'Art production phase, 12 character roster finalized',
-    active: false,
-    personas: DEFAULT_PERSONAS,
-    platforms: {
-      IG: { enabled: true,  credentialStatus: 'connected',     persona_id: 'personal' },
-      TT: { enabled: true,  credentialStatus: 'pending',       persona_id: 'personal' },
-      LI: { enabled: false, credentialStatus: 'not_connected', persona_id: 'brand' },
-      RD: { enabled: true,  credentialStatus: 'connected',     persona_id: 'personal' },
-      X:  { enabled: true,  credentialStatus: 'not_connected', persona_id: 'personal' },
-      FB: { enabled: false, credentialStatus: 'not_connected', persona_id: 'brand' },
-      YT: { enabled: true,  credentialStatus: 'not_connected', persona_id: 'brand' },
-      ST: { enabled: true,  credentialStatus: 'pending',       persona_id: 'brand' },
-      IT: { enabled: true,  credentialStatus: 'connected',     persona_id: 'brand' },
-      GJ: { enabled: true,  credentialStatus: 'not_connected', persona_id: 'brand' },
-    },
-  },
-]
-
 // Task 6: merge personas into existing projects if missing
 function mergePersonasIfAbsent(projects: Project[]): Project[] {
   return projects.map(p => {
@@ -1686,7 +1637,8 @@ export function ProjectsPage() {
   const navigate = useNavigate()
   const isNarrow = useIsNarrow()
 
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [projectsLoading, setProjectsLoading] = useState(true)
   const [showNewForm, setShowNewForm] = useState(false)
 
   // Load exclusively from API on mount
@@ -1697,9 +1649,11 @@ export function ProjectsPage() {
           const mapped = apiProjects.map(ap => DEFAULT_PROJECT_FROM_API(ap))
           setProjects(mergePersonasIfAbsent(mapped))
         }
+        setProjectsLoading(false)
       })
       .catch(() => {
-        // Backend offline — keep seed data shown as placeholder
+        // Backend offline — show empty state
+        setProjectsLoading(false)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -1814,15 +1768,44 @@ export function ProjectsPage() {
           />
         )}
 
-        {projects.map(project => (
-          <ProjectCard
-            key={project.id}
-            project={project}
-            onSetActive={handleSetActive}
-            onSave={handleSave}
-            onConnectInSettings={() => navigate('/settings')}
-          />
-        ))}
+        {projectsLoading ? (
+          <div style={{ padding: '80px 24px', textAlign: 'center', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', fontSize: 14 }}>
+            Loading…
+          </div>
+        ) : !projectsLoading && projects.length === 0 ? (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', padding: '80px 24px', gap: 16, textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 32 }}>📁</div>
+            <div style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 20, color: 'var(--text-primary)' }}>
+              No projects yet
+            </div>
+            <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--text-secondary)' }}>
+              Create your first project to start generating posts
+            </div>
+            <button
+              onClick={() => setShowNewForm(true)}
+              style={{
+                marginTop: 8, padding: '12px 24px', borderRadius: 12,
+                background: 'var(--accent)', border: 'none', color: '#fff',
+                fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+              }}
+            >
+              Create project
+            </button>
+          </div>
+        ) : (
+          projects.map(project => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onSetActive={handleSetActive}
+              onSave={handleSave}
+              onConnectInSettings={() => navigate('/settings')}
+            />
+          ))
+        )}
       </div>
     </div>
   )
