@@ -108,7 +108,7 @@ export function PageHeader({ title, rightSlot }: PageHeaderProps) {
       }}>
         {rightSlot}
         {/* Avatar badge navigates to settings */}
-        <AvatarBadge size={28} />
+        <AvatarBadge size={32} />
         {/* Gear icon as fallback / additional entry point */}
         <button
           onClick={() => navigate('/settings')}

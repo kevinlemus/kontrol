@@ -521,16 +521,14 @@ function MyProfileSection() {
   const [name, setName] = useState(user?.name ?? '')
   const [nameDirty, setNameDirty] = useState(false)
   const [nameSaving, setNameSaving] = useState(false)
-  const [nameError, setNameError] = useState('')
-  const [nameOk, setNameOk] = useState(false)
 
   // Email editing
   const [email, setEmail] = useState(user?.email ?? '')
   const [emailDirty, setEmailDirty] = useState(false)
+  const [showEmailModal, setShowEmailModal] = useState(false)
   const [emailCurrentPw, setEmailCurrentPw] = useState('')
-  const [emailSaving, setEmailSaving] = useState(false)
-  const [emailError, setEmailError] = useState('')
-  const [emailOk, setEmailOk] = useState(false)
+  const [emailModalError, setEmailModalError] = useState('')
+  const [emailModalSaving, setEmailModalSaving] = useState(false)
 
   // Password change
   const [showPwForm, setShowPwForm] = useState(false)
@@ -603,37 +601,32 @@ function MyProfileSection() {
   const handleSaveName = async () => {
     if (!nameDirty || nameSaving) return
     setNameSaving(true)
-    setNameError('')
-    setNameOk(false)
     try {
       await authApi.updateSettings({ name })
       updateUser({ name })
-      setNameOk(true)
       setNameDirty(false)
-      setTimeout(() => setNameOk(false), 2500)
+      showToast('Name saved ✓')
     } catch {
-      setNameError('Failed to save name')
+      showToast('Failed to save name')
     } finally {
       setNameSaving(false)
     }
   }
 
-  const handleSaveEmail = async () => {
-    if (!emailDirty || emailSaving) return
-    setEmailSaving(true)
-    setEmailError('')
-    setEmailOk(false)
+  const handleConfirmEmailChange = async () => {
+    setEmailModalSaving(true)
+    setEmailModalError('')
     try {
-      await authApi.updateSettings({ email, currentPassword: emailCurrentPw || undefined })
+      await authApi.updateSettings({ email, currentPassword: emailCurrentPw })
       updateUser({ email })
-      setEmailOk(true)
+      setShowEmailModal(false)
       setEmailDirty(false)
       setEmailCurrentPw('')
-      setTimeout(() => setEmailOk(false), 2500)
+      showToast('Email saved ✓')
     } catch {
-      setEmailError('Failed to save email')
+      setEmailModalError('Wrong password or save failed')
     } finally {
-      setEmailSaving(false)
+      setEmailModalSaving(false)
     }
   }
 
@@ -647,6 +640,7 @@ function MyProfileSection() {
       const res = await authApi.changePassword(currentPw, newPw)
       if (res.error) { setPwError(res.error); return }
       setPwOk(true)
+      showToast('Password updated ✓')
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
       setTimeout(() => { setPwOk(false); setShowPwForm(false) }, 2000)
     } catch {
@@ -685,7 +679,7 @@ function MyProfileSection() {
             <Avatar
               avatarUrl={user?.avatarUrl}
               name={user?.name ?? '?'}
-              size={64}
+              size={80}
               onClick={handleAvatarClick}
             />
             {/* Upload indicator */}
@@ -762,25 +756,18 @@ function MyProfileSection() {
             <input
               type="text"
               value={name}
-              onChange={e => { setName(e.target.value); setNameDirty(true); setNameOk(false) }}
+              onChange={e => { setName(e.target.value); setNameDirty(true) }}
               onBlur={handleSaveName}
               placeholder="Your name"
               style={inputStyle}
             />
             <button
               onClick={handleSaveName}
-              disabled={!nameDirty || nameSaving}
               style={saveBtnStyle(nameDirty && !nameSaving)}
             >
-              {nameSaving ? '...' : nameOk ? 'Saved' : 'Save'}
+              {nameSaving ? '...' : 'Save'}
             </button>
           </div>
-          {nameError && (
-            <span style={{ fontSize: 11, color: '#EF4444', fontFamily: 'var(--font-body)' }}>{nameError}</span>
-          )}
-          {nameOk && (
-            <span style={{ fontSize: 11, color: '#1ED760', fontFamily: 'var(--font-body)' }}>Name saved</span>
-          )}
         </div>
 
         {/* Email field */}
@@ -801,34 +788,139 @@ function MyProfileSection() {
             <input
               type="email"
               value={email}
-              onChange={e => { setEmail(e.target.value); setEmailDirty(true); setEmailOk(false) }}
+              onChange={e => { setEmail(e.target.value); setEmailDirty(true) }}
               placeholder="your@email.com"
               style={inputStyle}
             />
             <button
-              onClick={handleSaveEmail}
-              disabled={!emailDirty || emailSaving}
-              style={saveBtnStyle(emailDirty && !emailSaving)}
+              onClick={() => { if (!emailDirty) return; setEmailModalError(''); setShowEmailModal(true) }}
+              style={saveBtnStyle(emailDirty)}
             >
-              {emailSaving ? '...' : emailOk ? 'Saved' : 'Save'}
+              Save
             </button>
           </div>
-          {emailDirty && (
-            <input
-              type="password"
-              value={emailCurrentPw}
-              onChange={e => setEmailCurrentPw(e.target.value)}
-              placeholder="Current password (required to change email)"
-              style={{ ...fieldInputStyle, marginTop: 4 }}
-            />
-          )}
-          {emailError && (
-            <span style={{ fontSize: 11, color: '#EF4444', fontFamily: 'var(--font-body)' }}>{emailError}</span>
-          )}
-          {emailOk && (
-            <span style={{ fontSize: 11, color: '#1ED760', fontFamily: 'var(--font-body)' }}>Email saved</span>
-          )}
         </div>
+
+        {/* Email change modal */}
+        {showEmailModal && (
+          <>
+            <style>{`
+              @keyframes emailModalIn {
+                from { opacity: 0; transform: scale(0.95); }
+                to   { opacity: 1; transform: scale(1); }
+              }
+            `}</style>
+            <div
+              onClick={() => { setShowEmailModal(false); setEmailCurrentPw(''); setEmailModalError('') }}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.75)',
+                zIndex: 200,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 20px',
+              }}
+            >
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                  maxWidth: 380,
+                  width: '100%',
+                  background: 'var(--bg-card)',
+                  borderRadius: 20,
+                  padding: '28px 24px',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+                  animation: 'emailModalIn 200ms ease-out',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 16,
+                }}
+              >
+                <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+                  Confirm email change
+                </div>
+                <div style={{
+                  display: 'inline-block',
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  fontSize: 13,
+                  color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-mono)',
+                  wordBreak: 'break-all',
+                }}>
+                  {email}
+                </div>
+                <input
+                  type="password"
+                  value={emailCurrentPw}
+                  onChange={e => setEmailCurrentPw(e.target.value)}
+                  placeholder="Current password"
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 12,
+                    padding: '14px',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 14,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleConfirmEmailChange() }}
+                />
+                {emailModalError && (
+                  <span style={{ fontSize: 12, color: '#EF4444', fontFamily: 'var(--font-body)', marginTop: -8 }}>
+                    {emailModalError}
+                  </span>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={handleConfirmEmailChange}
+                    disabled={emailModalSaving}
+                    style={{
+                      flex: 1,
+                      padding: '12px 0',
+                      background: '#3B82F6',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 999,
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 15,
+                      fontWeight: 700,
+                      cursor: emailModalSaving ? 'not-allowed' : 'pointer',
+                      opacity: emailModalSaving ? 0.6 : 1,
+                    }}
+                  >
+                    {emailModalSaving ? 'Saving...' : 'Confirm'}
+                  </button>
+                  <button
+                    onClick={() => { setShowEmailModal(false); setEmailCurrentPw(''); setEmailModalError('') }}
+                    style={{
+                      flex: 1,
+                      padding: '12px 0',
+                      background: 'var(--bg-raised)',
+                      color: 'var(--text-primary)',
+                      border: 'none',
+                      borderRadius: 999,
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 15,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Password change */}
         <div style={{ padding: '14px 18px' }}>
