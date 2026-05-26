@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { BottomNav } from './components/shared/BottomNav'
 import { ToastProvider } from './components/shared/Toast'
+import { OfflineBanner } from './components/shared/OfflineBanner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { ComposePage } from './pages/ComposePage'
@@ -52,6 +53,7 @@ function AppShell() {
           </Routes>
         </main>
         {showNav && <BottomNav />}
+        <OfflineBanner />
       </div>
     </ToastProvider>
   )

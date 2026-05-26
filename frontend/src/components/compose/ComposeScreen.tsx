@@ -529,6 +529,10 @@ export function ComposeScreen() {
           whoItsFor: p.whoItsFor ?? undefined,
           vibe: p.vibe ?? undefined,
           currentStatus: p.currentStatus ?? undefined,
+          industry: p.industry ?? undefined,
+          competitor1: p.competitor1 ?? undefined,
+          competitor2: p.competitor2 ?? undefined,
+          competitor3: p.competitor3 ?? undefined,
           // Assign first project as active if none are flagged
           ...(idx === 0 && !list.some(x => x.active) ? { active: true } : {}),
         }))

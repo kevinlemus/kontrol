@@ -51,6 +51,13 @@ const PLATFORM_GRADIENTS: Record<PlatformKey, string> = {
   GJ: 'linear-gradient(135deg, #2F7F3E, #45B069)',
 }
 
+function toLocalISO(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function getCurrentWeek(): { label: string; date: number; iso: string }[] {
   const today = new Date()
   const dayOfWeek = today.getDay() // 0=Sun, 1=Mon...
@@ -62,13 +69,13 @@ function getCurrentWeek(): { label: string; date: number; iso: string }[] {
     return {
       label,
       date: d.getDate(),
-      iso: d.toISOString().slice(0, 10),
+      iso: toLocalISO(d),
     }
   })
 }
 
 const WEEK_DAYS = getCurrentWeek()
-const TODAY_ISO = new Date().toISOString().slice(0, 10)
+const TODAY_ISO = toLocalISO(new Date())
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

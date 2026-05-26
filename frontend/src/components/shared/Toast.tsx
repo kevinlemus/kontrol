@@ -65,7 +65,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         <div
           style={{
             position: 'fixed',
-            bottom: 80,
+            top: 'calc(52px + max(env(safe-area-inset-top), 44px) + 8px)',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 500,
@@ -87,7 +87,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               textOverflow: 'ellipsis',
               boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
               transition: 'transform 200ms ease, opacity 200ms ease',
-              transform: toast.exiting ? 'translateY(20px)' : 'translateY(0)',
+              transform: toast.exiting ? 'translateY(-20px)' : 'translateY(0)',
               opacity: toast.exiting ? 0 : 1,
             }}
           >
