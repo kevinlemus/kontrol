@@ -15,8 +15,8 @@ public class DraftDto {
     private String title;
     private String postType;
     private String status;
-    private String selectedSubreddit;   // e.g. "bedroomproducers" (without r/)
-    private String subredditReasoning;  // e.g. "Best fit — discusses vocal recording"
+    private String selectedSubreddit;   // subreddit name without r/ prefix — selected by Claude from monitored list
+    private String subredditReasoning;  // one-sentence explanation of why Claude chose this subreddit
     private String postPlatformId;      // UUID string — set by GenerationService after saving PostPlatform row
     private String hook;                // 5-8 word punchy video overlay text (transient — not persisted to DB)
 }

@@ -34,17 +34,18 @@ interface Suggestion {
   url?: string
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const PROJECT_ACCENTS: Record<string, string> = {
-  'DaStu': 'linear-gradient(135deg, #FF4500, #FF6534)',
-  'Sumo Slam': 'linear-gradient(135deg, #1B2838, #2A475E)',
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Deterministic accent color from project name — no hardcoded names needed. */
+const ACCENT_PALETTE = ['#3B82F6','#1ED760','#F59E0B','#EC4899','#8B5CF6','#06B6D4','#F97316','#FF4500']
+function getProjectAccent(name: string): string {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h)
+  return ACCENT_PALETTE[Math.abs(h) % ACCENT_PALETTE.length]
+}
+
 function timeAgo(iso: string): string {
-  const now = new Date('2026-05-23T10:00:00')
+  const now = new Date()
   const then = new Date(iso)
   const diff = Math.floor((now.getTime() - then.getTime()) / 1000)
   if (diff < 60) return `${diff}s ago`
@@ -93,7 +94,7 @@ function SubredditRow({
       }}>
         <span style={{
           width: 8, height: 8, borderRadius: '50%',
-          background: PROJECT_ACCENTS[item.projectName] ?? 'var(--bg-active)',
+          background: getProjectAccent(item.projectName),
           flexShrink: 0,
         }} />
         {item.projectName}
@@ -153,7 +154,7 @@ function SuggestionCard({
         {/* Project swatch */}
         <span style={{
           width: 10, height: 10, borderRadius: '50%',
-          background: suggestion.projectAccent,
+          background: getProjectAccent(suggestion.projectName),
           flexShrink: 0,
         }} />
         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
@@ -416,7 +417,7 @@ export function RedditPage() {
         setSuggestions(apiSuggestions.map(s => ({
           id: s.id,
           projectName,
-          projectAccent: PROJECT_ACCENTS[projectName] ?? 'var(--bg-active)',
+          projectAccent: getProjectAccent(projectName),
           subreddit: s.subreddit,
           postTitle: s.redditPostTitle,
           postUrl: s.redditPostUrl,

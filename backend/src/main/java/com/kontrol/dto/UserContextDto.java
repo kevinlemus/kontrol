@@ -8,6 +8,6 @@ import lombok.*;
  */
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class UserContextDto {
-    private String name;         // "Kevin" — used in system prompt
+    private String name;         // user's display name — used in system prompt
     private String voiceProfile; // injected verbatim into system prompt
 }

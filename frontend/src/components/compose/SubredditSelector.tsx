@@ -20,12 +20,8 @@ export function SubredditSelector({ selectedSubreddit, reasoning, projectId, onS
     redditApi.getMonitors(projectId)
       .then(setMonitors)
       .catch(() => {
-        // Fallback: provide default list if API unavailable
-        setMonitors([
-          { id: '1', subreddit: 'bedroomproducers', active: true, coolingDown: false, hoursUntilEligible: 0 },
-          { id: '2', subreddit: 'makinghiphop', active: true, coolingDown: false, hoursUntilEligible: 0 },
-          { id: '3', subreddit: 'WeAreTheMusicMakers', active: true, coolingDown: false, hoursUntilEligible: 0 },
-        ])
+        // API unavailable — leave monitors empty; user can add subreddits in the Reddit tab
+        setMonitors([])
       })
   }, [projectId])
 
