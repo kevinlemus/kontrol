@@ -69,6 +69,9 @@ const PLATFORM_NAMES: Record<PlatformKey, string> = {
   X: 'X', FB: 'Facebook', YT: 'YouTube', ST: 'Steam', IT: 'itch.io', GJ: 'Game Jolt',
 }
 
+// Platforms with working OAuth credentials + backend implementation
+const OAUTH_IMPLEMENTED = new Set(['IG', 'FB', 'LI'])
+
 // Task 6: persona_id assignment per platform
 const PLATFORM_PERSONA_MAP: Record<PlatformKey, string> = {
   IG: 'personal', TT: 'personal', LI: 'brand', RD: 'personal',
@@ -1027,7 +1030,7 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
                     </div>
 
                     {/* Connect / Disconnect */}
-                    {!isProjectConnected && (
+                    {!isProjectConnected && OAUTH_IMPLEMENTED.has(pk) && (
                       <button
                         onClick={() => handleConnectProjectAccount(pk, project.id)}
                         style={{
@@ -1052,23 +1055,25 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
                       </button>
                     )}
 
-                    {/* Import button */}
-                    <button
-                      onClick={() => void handleImportPosts(pk, project.id)}
-                      disabled={importingPlatform === pk}
-                      style={{
-                        fontSize: 11,
-                        color: (hist?.postCount ?? 0) > 0 ? 'var(--accent-green)' : 'var(--text-muted)',
-                        background: 'none', border: 'none', cursor: importingPlatform === pk ? 'not-allowed' : 'pointer',
-                        fontFamily: 'var(--font-mono)', padding: 0, whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {importingPlatform === pk
-                        ? 'Importing...'
-                        : (hist?.postCount ?? 0) > 0
-                          ? `✓ ${hist!.postCount} posts`
-                          : 'Import posts'}
-                    </button>
+                    {/* Import button — only when platform is connected */}
+                    {isProjectConnected && (
+                      <button
+                        onClick={() => void handleImportPosts(pk, project.id)}
+                        disabled={importingPlatform === pk}
+                        style={{
+                          fontSize: 11,
+                          color: (hist?.postCount ?? 0) > 0 ? 'var(--accent-green)' : 'var(--text-muted)',
+                          background: 'none', border: 'none', cursor: importingPlatform === pk ? 'not-allowed' : 'pointer',
+                          fontFamily: 'var(--font-mono)', padding: 0, whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {importingPlatform === pk
+                          ? 'Importing...'
+                          : (hist?.postCount ?? 0) > 0
+                            ? `✓ ${hist!.postCount} posts`
+                            : 'Import posts'}
+                      </button>
+                    )}
                   </div>
                 )
               })}

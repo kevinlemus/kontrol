@@ -33,6 +33,9 @@ const PLATFORM_OAUTH_PATH: Record<string, string> = {
   GJ: 'gamejolt',
 }
 
+// Platforms with working OAuth credentials + backend implementation
+const OAUTH_IMPLEMENTED = new Set(['IG', 'FB', 'LI'])
+
 function readVoiceEdits(): Record<string, number> {
   try {
     const raw = localStorage.getItem('kontrol_voice_edits')
@@ -63,15 +66,15 @@ interface PlatformAccount {
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
 const INITIAL_PLATFORM_ACCOUNTS: PlatformAccount[] = [
-  { key: 'IG', name: 'Instagram', gradient: 'linear-gradient(135deg, #F58529, #DD2A7B, #8134AF)', status: 'connected',     account: '@kontrol_ig' },
+  { key: 'IG', name: 'Instagram', gradient: 'linear-gradient(135deg, #F58529, #DD2A7B, #8134AF)', status: 'not_connected' },
   { key: 'TT', name: 'TikTok',    gradient: 'linear-gradient(135deg, #010101, #69C9D0)',          status: 'pending' },
   { key: 'LI', name: 'LinkedIn',  gradient: 'linear-gradient(135deg, #0A66C2, #0077B5)',          status: 'not_connected' },
-  { key: 'RD', name: 'Reddit',    gradient: 'linear-gradient(135deg, #FF4500, #FF6534)',          status: 'connected',     account: 'u/kevin_dev' },
+  { key: 'RD', name: 'Reddit',    gradient: 'linear-gradient(135deg, #FF4500, #FF6534)',          status: 'pending' },
   { key: 'X',  name: 'X',        gradient: 'linear-gradient(135deg, #1a1a1a, #333333)',          status: 'not_connected' },
   { key: 'FB', name: 'Facebook',  gradient: 'linear-gradient(135deg, #1877F2, #0C5FCF)',          status: 'not_connected' },
   { key: 'YT', name: 'YouTube',   gradient: 'linear-gradient(135deg, #FF0000, #CC0000)',          status: 'not_connected' },
   { key: 'ST', name: 'Steam',     gradient: 'linear-gradient(135deg, #1B2838, #2A475E)',          status: 'pending' },
-  { key: 'IT', name: 'itch.io',   gradient: 'linear-gradient(135deg, #FA5C5C, #E63946)',          status: 'connected',     account: 'kontrol' },
+  { key: 'IT', name: 'itch.io',   gradient: 'linear-gradient(135deg, #FA5C5C, #E63946)',          status: 'not_connected' },
   { key: 'GJ', name: 'Game Jolt', gradient: 'linear-gradient(135deg, #2F7F3E, #45B069)',          status: 'not_connected' },
 ]
 
@@ -266,11 +269,12 @@ function SectionHeader({
 // ─── Platform Row (stateful per row) ──────────────────────────────────────────
 
 function PlatformRow({
-  platform, onDisconnect, onOpenModal,
+  platform, onDisconnect, onOpenModal, isImplemented,
 }: {
   platform: PlatformAccount
   onDisconnect: (key: PlatformKey) => void
   onOpenModal: (platform: PlatformAccount) => void
+  isImplemented: boolean
 }) {
   const { showToast } = useToast()
   const [connectHovered, setConnectHovered] = useState(false)
@@ -347,25 +351,31 @@ function PlatformRow({
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', flexShrink: 0 }} />
           <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>—</span>
         </span>
-        <button
-          onClick={() => onOpenModal(platform)}
-          onMouseEnter={() => setConnectHovered(true)}
-          onMouseLeave={() => setConnectHovered(false)}
-          style={{
-            padding: '4px 12px',
-            borderRadius: 999,
-            border: `1px solid ${connectHovered ? 'var(--accent)' : 'rgba(255,255,255,0.12)'}`,
-            background: 'none',
-            color: connectHovered ? 'var(--accent)' : 'var(--text-muted)',
-            fontFamily: 'var(--font-body)',
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'color 0.15s, border-color 0.15s',
-          }}
-        >
-          Connect
-        </button>
+        {isImplemented ? (
+          <button
+            onClick={() => onOpenModal(platform)}
+            onMouseEnter={() => setConnectHovered(true)}
+            onMouseLeave={() => setConnectHovered(false)}
+            style={{
+              padding: '4px 12px',
+              borderRadius: 999,
+              border: `1px solid ${connectHovered ? 'var(--accent)' : 'rgba(255,255,255,0.12)'}`,
+              background: 'none',
+              color: connectHovered ? 'var(--accent)' : 'var(--text-muted)',
+              fontFamily: 'var(--font-body)',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+          >
+            Connect
+          </button>
+        ) : (
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontFamily: 'var(--font-mono)' }}>
+            coming soon
+          </span>
+        )}
       </div>
     )
   }
@@ -1059,7 +1069,9 @@ export function SettingsPage() {
   // Helpers to look up real connection status
   function getConnectionStatus(key: PlatformKey): ConnectStatus {
     if (connectionStatuses.length === 0) {
-      return INITIAL_PLATFORM_ACCOUNTS.find(p => p.key === key)?.status ?? 'not_connected'
+      // API offline — never assume connected; keep pending statuses only
+      const initial = INITIAL_PLATFORM_ACCOUNTS.find(p => p.key === key)
+      return initial?.status === 'pending' ? 'pending' : 'not_connected'
     }
     const found = connectionStatuses.find(c => c.platform === key)
     if (!found || !found.connected) return 'not_connected'
@@ -1221,6 +1233,7 @@ export function SettingsPage() {
                   platform={p}
                   onDisconnect={handleDisconnect}
                   onOpenModal={setConnectModal}
+                  isImplemented={OAUTH_IMPLEMENTED.has(p.key)}
                 />
               </div>
             ))}
