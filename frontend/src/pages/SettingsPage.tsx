@@ -1043,7 +1043,7 @@ export function SettingsPage() {
   useEffect(() => {
     projectsApi.list()
       .then(list => {
-        const active = list.find(p => p.active)
+        const active = (list ?? []).find(p => p.active)
         setActiveProjectId(active?.id ?? null)
       })
       .catch(() => {})
@@ -1062,7 +1062,7 @@ export function SettingsPage() {
   // Fetch real connection statuses whenever activeProjectId changes
   useEffect(() => {
     connectionsApi.list(activeProjectId ?? undefined)
-      .then(setConnectionStatuses)
+      .then(data => setConnectionStatuses(data ?? []))
       .catch(() => {})
   }, [activeProjectId])
 
@@ -1093,7 +1093,7 @@ export function SettingsPage() {
     connectionsApi.disconnect(key, activeProjectId ?? undefined)
       .then(() => {
         connectionsApi.list(activeProjectId ?? undefined)
-          .then(setConnectionStatuses)
+          .then(data => setConnectionStatuses(data ?? []))
           .catch(() => {})
       })
       .catch(() => {})

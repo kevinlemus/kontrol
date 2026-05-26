@@ -639,15 +639,18 @@ function GenericPreview({ draft, platform }: { draft: PlatformDraft; platform: P
 }
 
 export function PreviewCard({ draft, platform, selectedPostType: _selectedPostType, viewMode: _viewMode, onViewModeChange: _onViewModeChange, userName }: PreviewCardProps) {
+  // Guard: content field can be undefined when API returns empty/partial draft
+  const safeDraft = { ...draft, content: draft.content ?? '' }
+
   function renderPreview() {
     switch (platform.id) {
-      case 'IG': return <InstagramPreview draft={draft} />
-      case 'TT': return <TikTokPreview draft={draft} />
-      case 'YT': return <YouTubePreview draft={draft} />
-      case 'LI': return <LinkedInPreview draft={draft} userName={userName} />
-      case 'RD': return <RedditPreview draft={draft} userName={userName} />
-      case 'X': return <XPreview draft={draft} userName={userName} />
-      default: return <GenericPreview draft={draft} platform={platform} />
+      case 'IG': return <InstagramPreview draft={safeDraft} />
+      case 'TT': return <TikTokPreview draft={safeDraft} />
+      case 'YT': return <YouTubePreview draft={safeDraft} />
+      case 'LI': return <LinkedInPreview draft={safeDraft} userName={userName} />
+      case 'RD': return <RedditPreview draft={safeDraft} userName={userName} />
+      case 'X': return <XPreview draft={safeDraft} userName={userName} />
+      default: return <GenericPreview draft={safeDraft} platform={platform} />
     }
   }
 

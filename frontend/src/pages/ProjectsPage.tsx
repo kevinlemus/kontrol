@@ -1830,8 +1830,8 @@ export function ProjectsPage() {
   useEffect(() => {
     projectsApi.list()
       .then(apiProjects => {
-        if (apiProjects.length > 0) {
-          const mapped = apiProjects.map(ap => DEFAULT_PROJECT_FROM_API(ap))
+        if ((apiProjects ?? []).length > 0) {
+          const mapped = (apiProjects ?? []).map(ap => DEFAULT_PROJECT_FROM_API(ap))
           setProjects(mergePersonasIfAbsent(mapped))
         }
         setProjectsLoading(false)

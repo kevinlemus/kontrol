@@ -521,7 +521,7 @@ export function ComposeScreen() {
   useEffect(() => {
     projectsApi.list()
       .then(list => {
-        const mapped: StoredProject[] = list.map((p, idx) => ({
+        const mapped: StoredProject[] = (list ?? []).map((p, idx) => ({
           id: p.id,
           name: p.name,
           active: p.active,
@@ -680,7 +680,7 @@ export function ComposeScreen() {
         const platformId = pid as PlatformId
         newDrafts[platformId] = {
           ...newDrafts[platformId],
-          content: apiDraft.content,
+          content: apiDraft.content ?? '',
           title: apiDraft.title ?? newDrafts[platformId]?.title ?? '',
           subreddit: apiDraft.selectedSubreddit ?? newDrafts[platformId]?.subreddit,
           subredditReasoning: apiDraft.subredditReasoning ?? newDrafts[platformId]?.subredditReasoning,
@@ -697,7 +697,7 @@ export function ComposeScreen() {
       const originals: Record<string, string> = {}
       Object.entries(resp.drafts).forEach(([pid, apiDraft]) => {
         if (apiDraft.postPlatformId) ids[pid] = apiDraft.postPlatformId
-        originals[pid] = apiDraft.content
+        originals[pid] = apiDraft.content ?? ''
       })
       setPostPlatformIds(ids)
       setOriginalContents(originals)
@@ -1033,24 +1033,26 @@ export function ComposeScreen() {
           )}
 
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <ActiveCard
-              draft={activeDraft}
-              platform={activePlatform}
-              onContentChange={handleContentChange}
-              onTitleChange={handleTitleChange}
-              onTypeChange={handleTypeChange}
-              onApprove={handleApprove}
-              onRegenerate={handleRegenerate}
-              onSkip={handleSkip}
-              onDiscardBatch={handleDiscardBatch}
-              desktop
-              projectName={state.projectName}
-              projectId={activeProjectId ?? undefined}
-              onSubredditChange={handleSubredditChange}
-              insights={insights}
-              userName={userName}
-              onHookChange={handleHookChange}
-            />
+            {activeDraft && activePlatform && (
+              <ActiveCard
+                draft={activeDraft}
+                platform={activePlatform}
+                onContentChange={handleContentChange}
+                onTitleChange={handleTitleChange}
+                onTypeChange={handleTypeChange}
+                onApprove={handleApprove}
+                onRegenerate={handleRegenerate}
+                onSkip={handleSkip}
+                onDiscardBatch={handleDiscardBatch}
+                desktop
+                projectName={state.projectName}
+                projectId={activeProjectId ?? undefined}
+                onSubredditChange={handleSubredditChange}
+                insights={insights}
+                userName={userName}
+                onHookChange={handleHookChange}
+              />
+            )}
           </div>
         </div>
 
@@ -1352,7 +1354,7 @@ export function ComposeScreen() {
           <div style={{ padding: 32, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 14, fontFamily: 'var(--font-body)' }}>
             Enable platforms in your project settings to start generating posts.
           </div>
-        ) : (
+        ) : activeDraft && activePlatform ? (
           <ActiveCard
             draft={activeDraft}
             platform={activePlatform}
@@ -1370,7 +1372,7 @@ export function ComposeScreen() {
             userName={userName}
             onHookChange={handleHookChange}
           />
-        )}
+        ) : null}
       </div>
 
       {showSmartSchedule && (

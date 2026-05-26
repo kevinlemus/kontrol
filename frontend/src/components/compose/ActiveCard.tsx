@@ -47,7 +47,7 @@ export function ActiveCard({
   onHookChange,
 }: ActiveCardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
-  const originalContentRef = useRef<string>(draft.content)
+  const originalContentRef = useRef<string>(draft.content ?? '')
   const { showToast } = useToast()
 
   // Three-dot menu state
@@ -57,7 +57,7 @@ export function ActiveCard({
   const discardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    originalContentRef.current = draft.content
+    originalContentRef.current = draft.content ?? ''
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.platformId])
 

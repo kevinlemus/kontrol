@@ -120,7 +120,7 @@ function ScheduledCard({
 }) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing] = useState(false)
-  const [editContent, setEditContent] = useState(post.content)
+  const [editContent, setEditContent] = useState(post.content ?? '')
   const [editingTime, setEditingTime] = useState(false)
   const [cancelConfirm, setCancelConfirm] = useState(false)
   const { showToast } = useToast()
@@ -130,9 +130,10 @@ function ScheduledCard({
     `${String(tDate.getHours()).padStart(2, '0')}:${String(tDate.getMinutes()).padStart(2, '0')}`
   )
 
-  const preview = post.content.length > 80
-    ? post.content.slice(0, 80) + '…'
-    : post.content
+  const safeContent = post.content ?? ''
+  const preview = safeContent.length > 80
+    ? safeContent.slice(0, 80) + '…'
+    : safeContent
 
   const handleCancelClick = () => {
     if (!cancelConfirm) {
@@ -208,7 +209,7 @@ function ScheduledCard({
           lineHeight: 1.5,
           margin: 0,
         }}>
-          {expanded ? post.content : preview}
+          {expanded ? safeContent : preview}
         </p>
 
         {/* Expanded detail panel */}
@@ -396,7 +397,7 @@ function ScheduledCard({
                 Save
               </button>
               <button
-                onClick={() => { setEditing(false); setEditContent(post.content) }}
+                onClick={() => { setEditing(false); setEditContent(post.content ?? '') }}
                 style={{
                   padding: '7px 16px',
                   borderRadius: 'var(--radius-button)',

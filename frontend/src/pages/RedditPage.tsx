@@ -399,7 +399,7 @@ export function RedditPage() {
   useEffect(() => {
     projectsApi.list()
       .then(list => {
-        const active = list.find(p => p.active)
+        const active = (list ?? []).find(p => p.active)
         setActiveProjectId(active?.id ?? null)
         setActiveProjectName(active?.name ?? null)
       })
@@ -414,7 +414,7 @@ export function RedditPage() {
     // Load monitored subreddits from DB
     redditApi.getMonitors(activeProjectId)
       .then(monitors => {
-        setSubreddits(monitors.map(m => ({
+        setSubreddits((monitors ?? []).map(m => ({
           id: m.id,
           projectId: activeProjectId,
           projectName,
@@ -427,7 +427,7 @@ export function RedditPage() {
     // Load suggestions
     redditApi.getSuggestions(activeProjectId)
       .then(apiSuggestions => {
-        setSuggestions(apiSuggestions.map(s => ({
+        setSuggestions((apiSuggestions ?? []).map(s => ({
           id: s.id,
           projectName,
           projectAccent: getProjectAccent(projectName),
