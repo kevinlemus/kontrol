@@ -25,6 +25,7 @@ interface ActiveCardProps {
   onSubredditChange?: (subreddit: string) => void
   insights?: PerformanceInsightDto[] | null
   userName?: string
+  onHookChange?: (hook: string) => void
 }
 
 export function ActiveCard({
@@ -43,6 +44,7 @@ export function ActiveCard({
   onSubredditChange,
   insights,
   userName,
+  onHookChange,
 }: ActiveCardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
   const originalContentRef = useRef<string>(draft.content)
@@ -438,6 +440,66 @@ export function ActiveCard({
 
       <ConfidenceIndicator platformId={platform.id} insights={insights} />
 
+      {/* Hook — above caption, editable */}
+      {draft.hook && draft.status !== 'approved' && (
+        <div style={{ padding: '0 16px 10px', flexShrink: 0 }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 12px',
+            background: 'rgba(59,130,246,0.08)',
+            border: '1px solid rgba(59,130,246,0.2)',
+            borderRadius: 10,
+          }}>
+            <span style={{
+              fontSize: 9,
+              fontWeight: 700,
+              fontFamily: 'var(--font-mono)',
+              color: 'rgba(59,130,246,0.8)',
+              letterSpacing: 0.8,
+              textTransform: 'uppercase' as const,
+              flexShrink: 0,
+            }}>HOOK</span>
+            <input
+              value={draft.hook}
+              onChange={e => onHookChange?.(e.target.value)}
+              style={{
+                flex: 1,
+                background: 'none',
+                border: 'none',
+                outline: 'none',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-body)',
+                fontSize: 13,
+                fontWeight: 600,
+                padding: 0,
+                minWidth: 0,
+              }}
+              placeholder="edit hook text..."
+            />
+            <button
+              onClick={() => navigator.clipboard.writeText(draft.hook!).then(() => showToast('Hook copied'))}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: 0,
+                flexShrink: 0,
+                display: 'flex',
+              }}
+              title="Copy hook"
+            >
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                <rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                <path d="M1 9V2a1 1 0 011-1h7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {viewMode === 'edit' ? (
         <CardContent
           draft={draft}
@@ -459,60 +521,6 @@ export function ActiveCard({
             onViewModeChange={setViewMode}
             userName={userName}
           />
-        </div>
-      )}
-
-      {/* Hook chip — shown when draft has a hook and is not yet approved */}
-      {draft.hook && draft.status !== 'approved' && (
-        <div style={{
-          padding: '0 16px 12px',
-          flexShrink: 0,
-        }}>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(draft.hook!).then(() => {
-                showToast('Hook copied — paste it in your video editor')
-              }).catch(() => showToast('Copy failed'))
-            }}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '7px 12px',
-              background: 'rgba(59,130,246,0.1)',
-              border: '1px solid rgba(59,130,246,0.25)',
-              borderRadius: 999,
-              cursor: 'pointer',
-              maxWidth: '100%',
-            }}
-          >
-            <span style={{
-              fontSize: 10,
-              fontWeight: 700,
-              fontFamily: 'var(--font-mono)',
-              color: 'rgba(59,130,246,0.8)',
-              letterSpacing: 0.8,
-              textTransform: 'uppercase',
-              flexShrink: 0,
-            }}>
-              HOOK
-            </span>
-            <span style={{
-              fontSize: 13,
-              fontFamily: 'var(--font-body)',
-              color: 'var(--text-primary)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
-              {draft.hook}
-            </span>
-            {/* Copy icon */}
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
-              <rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
-              <path d="M1 9V2a1 1 0 011-1h7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-            </svg>
-          </button>
         </div>
       )}
 

@@ -9,6 +9,7 @@ import com.kontrol.dto.UserContextDto;
 import com.kontrol.model.Post;
 import com.kontrol.model.PostPlatform;
 import com.kontrol.model.SubredditMonitor;
+import com.kontrol.repository.PlatformVoiceProfileRepository;
 import com.kontrol.repository.PostPlatformRepository;
 import com.kontrol.repository.PostRepository;
 import com.kontrol.repository.ProjectRepository;
@@ -35,6 +36,7 @@ public class GenerationService {
     private final SubredditMonitorRepository subredditMonitorRepository;
     private final PerformanceService performanceService;
     private final UserSettingsService userSettingsService;
+    private final PlatformVoiceProfileRepository voiceProfileRepository;
 
     public GenerateResponse generate(GenerateRequest request) {
         UUID projectId = UUID.fromString(request.getProjectId());
@@ -63,6 +65,18 @@ public class GenerationService {
         // Build per-platform competitor notes from existing project data — no extra Claude API call
         projectContext.setPlatformCompetitorNotes(
             claudeService.buildPlatformCompetitorNotes(projectContext, request.getPlatforms()));
+
+        // Fetch per-platform voice profiles from historical post analysis and inject into context
+        Map<String, String> voiceProfiles = new HashMap<>();
+        for (String pid : request.getPlatforms()) {
+            voiceProfileRepository.findByProjectIdAndPlatform(projectId, pid)
+                .ifPresent(vp -> {
+                    if (vp.getVoiceSummary() != null && vp.getAnalyzedPostCount() >= 3) {
+                        voiceProfiles.put(pid, vp.getVoiceSummary());
+                    }
+                });
+        }
+        projectContext.setPlatformVoiceProfiles(voiceProfiles);
 
         // Fetch performance insights per platform
         List<PerformanceInsightDto> insights = request.getPlatforms().stream()

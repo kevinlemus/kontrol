@@ -4,6 +4,9 @@ import { PageHeader } from '../components/shared/PageHeader'
 import { Toggle } from '../components/shared/Toggle'
 import { projectsApi } from '../api/projects'
 import { authApi } from '../api/auth'
+import { connectionsApi } from '../api/connections'
+import { historicalApi } from '../api/historical'
+import { useToast } from '../components/shared/Toast'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -790,6 +793,16 @@ function SectionDivider() {
   return <div style={{ height: 1, background: '#222', margin: '4px 0' }} />
 }
 
+// ─── OAuth path helper ────────────────────────────────────────────────────────
+
+function getPlatformOAuthPath(pk: string): string {
+  const map: Record<string, string> = {
+    IG: 'instagram', FB: 'facebook', LI: 'linkedin',
+    RD: 'reddit', X: 'twitter', TT: 'tiktok', YT: 'youtube',
+  }
+  return map[pk] ?? pk.toLowerCase()
+}
+
 // ─── Edit Panel ───────────────────────────────────────────────────────────────
 
 interface EditPanelProps {
@@ -808,6 +821,67 @@ const PERSONA_DOT_COLORS: Record<string, string> = {
 
 function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanelProps) {
   const [form, setForm] = useState({ ...project })
+  const { showToast } = useToast()
+
+  // Connected accounts state
+  const [importingPlatform, setImportingPlatform] = useState<string | null>(null)
+  const [importStatus, setImportStatus] = useState<Record<string, { postCount: number; hasData: boolean }>>({})
+  const [projectConnections, setProjectConnections] = useState<Record<string, { connected: boolean; accountHandle: string | null }>>({})
+
+  // Load connections and historical status when panel opens
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [conns, hist] = await Promise.all([
+          connectionsApi.list(project.id),
+          historicalApi.status(project.id),
+        ])
+        const connMap: Record<string, { connected: boolean; accountHandle: string | null }> = {}
+        for (const c of conns) {
+          connMap[c.platform] = { connected: c.connected, accountHandle: c.accountHandle }
+        }
+        setProjectConnections(connMap)
+
+        const histMap: Record<string, { postCount: number; hasData: boolean }> = {}
+        for (const h of hist) {
+          histMap[h.platform] = { postCount: h.postCount, hasData: h.hasData }
+        }
+        setImportStatus(histMap)
+      } catch {
+        // Backend offline — leave empty
+      }
+    }
+    void load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id])
+
+  const handleConnectProjectAccount = (pk: string, projectId: string) => {
+    const BASE = (import.meta as { env: { VITE_API_URL?: string } }).env.VITE_API_URL ?? 'http://localhost:8080'
+    window.location.href = `${BASE}/api/v1/oauth/${getPlatformOAuthPath(pk)}/authorize?project_id=${projectId}`
+  }
+
+  const handleDisconnectProject = async (pk: string, projectId: string) => {
+    try {
+      await connectionsApi.disconnect(pk, projectId)
+      setProjectConnections(prev => ({ ...prev, [pk]: { connected: false, accountHandle: null } }))
+      showToast(`${PLATFORM_NAMES[pk as PlatformKey] ?? pk} disconnected`)
+    } catch {
+      showToast('Disconnect failed')
+    }
+  }
+
+  const handleImportPosts = async (pk: string, projectId: string) => {
+    setImportingPlatform(pk)
+    try {
+      const result = await historicalApi.import(pk, projectId)
+      setImportStatus(prev => ({ ...prev, [pk]: { postCount: result.imported, hasData: result.imported >= 10 } }))
+      showToast(result.imported > 0 ? `${result.imported} posts imported — voice learning activated` : 'No posts found')
+    } catch {
+      showToast('Import failed — check connection')
+    } finally {
+      setImportingPlatform(null)
+    }
+  }
 
   const setField = (key: keyof Project, val: string) =>
     setForm(f => ({ ...f, [key]: val }))
@@ -906,6 +980,102 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
           ))}
         </div>
       </div>
+
+      {/* ── Connected Accounts section ── */}
+      {(() => {
+        const enabledKeys = ALL_PLATFORM_KEYS.filter(pk => form.platforms[pk]?.enabled)
+        if (enabledKeys.length === 0) return null
+        return (
+          <div>
+            <div style={{
+              fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
+              textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10,
+            }}>
+              Connected Accounts
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {enabledKeys.map(pk => {
+                const conn = projectConnections[pk]
+                const isProjectConnected = conn?.connected ?? false
+                const accountHandle = conn?.accountHandle ?? null
+                const hist = importStatus[pk]
+                return (
+                  <div key={pk} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 0',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  }}>
+                    {/* Platform gradient dot */}
+                    <span style={{
+                      width: 28, height: 28, borderRadius: 8,
+                      background: PLATFORM_GRADIENTS[pk],
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#fff',
+                      flexShrink: 0,
+                    }}>{pk}</span>
+
+                    {/* Name + status */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)', color: 'var(--text-primary)' }}>
+                        {PLATFORM_NAMES[pk]}
+                      </span>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                        {isProjectConnected ? `✓ ${accountHandle ?? ''}` : 'Using global account'}
+                      </div>
+                    </div>
+
+                    {/* Connect / Disconnect */}
+                    {!isProjectConnected && (
+                      <button
+                        onClick={() => handleConnectProjectAccount(pk, project.id)}
+                        style={{
+                          fontSize: 11, color: 'var(--accent)', background: 'none',
+                          border: '1px solid rgba(59,130,246,0.3)', cursor: 'pointer',
+                          fontFamily: 'var(--font-body)', padding: '4px 8px', borderRadius: 6,
+                        }}
+                      >
+                        Connect
+                      </button>
+                    )}
+                    {isProjectConnected && (
+                      <button
+                        onClick={() => void handleDisconnectProject(pk, project.id)}
+                        style={{
+                          fontSize: 11, color: '#FF4444', background: 'none',
+                          border: '1px solid rgba(255,68,68,0.3)', cursor: 'pointer',
+                          fontFamily: 'var(--font-body)', padding: '4px 8px', borderRadius: 6,
+                        }}
+                      >
+                        Disconnect
+                      </button>
+                    )}
+
+                    {/* Import button */}
+                    <button
+                      onClick={() => void handleImportPosts(pk, project.id)}
+                      disabled={importingPlatform === pk}
+                      style={{
+                        fontSize: 11,
+                        color: (hist?.postCount ?? 0) > 0 ? 'var(--accent-green)' : 'var(--text-muted)',
+                        background: 'none', border: 'none', cursor: importingPlatform === pk ? 'not-allowed' : 'pointer',
+                        fontFamily: 'var(--font-mono)', padding: 0, whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {importingPlatform === pk
+                        ? 'Importing...'
+                        : (hist?.postCount ?? 0) > 0
+                          ? `✓ ${hist!.postCount} posts`
+                          : 'Import posts'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Project Context section ── */}
       <ContextTabsSection

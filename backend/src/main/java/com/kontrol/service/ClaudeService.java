@@ -215,11 +215,26 @@ public class ClaudeService {
         boolean hasPlatformNotes = project.getPlatformCompetitorNotes() != null
             && !project.getPlatformCompetitorNotes().isEmpty();
 
-        if (!hasIndustry && !hasCompetitors && !hasDocContext && !hasPlatformNotes) {
+        // Inject platform voice profiles from historical post analysis (Tier 2 enhancement)
+        Map<String, String> voiceProfiles = project.getPlatformVoiceProfiles();
+        boolean hasVoiceProfiles = voiceProfiles != null && !voiceProfiles.isEmpty();
+
+        if (!hasIndustry && !hasCompetitors && !hasDocContext && !hasPlatformNotes && !hasVoiceProfiles) {
             return base;
         }
 
         StringBuilder sb = new StringBuilder(base);
+
+        if (hasVoiceProfiles) {
+            sb.append("PLATFORM VOICE PROFILES (from historical post analysis):\n\n");
+            for (String platform : platforms) {
+                String profile = voiceProfiles.get(platform);
+                if (profile != null && !profile.isBlank()) {
+                    String pName = PLATFORM_DISPLAY_NAMES.getOrDefault(platform, platform);
+                    sb.append("For ").append(pName).append(": ").append(profile).append("\n\n");
+                }
+            }
+        }
 
         // Tier 4 — Generic competitive & industry context
         if (hasIndustry) {
@@ -551,6 +566,33 @@ Only include the platforms requested. Do not include others.
             log.error("Failed to parse analyzeWebsite Claude response. Raw: {}", responseText, e);
             throw new RuntimeException("Failed to parse Claude response: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Analyze a list of posts to extract voice patterns and writing style.
+     * Returns a concise summary to be stored as the platform voice profile.
+     */
+    public String analyzeVoicePatterns(List<String> posts, String platform) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return "Voice profile requires CLAUDE_API_KEY";
+        }
+        if (posts == null || posts.isEmpty()) return null;
+
+        String platformName = PLATFORM_DISPLAY_NAMES.getOrDefault(platform, platform);
+        StringBuilder sb = new StringBuilder();
+        sb.append("Analyze these ").append(posts.size())
+          .append(" posts from a creator's ").append(platformName).append(" account:\n\n");
+        for (int i = 0; i < Math.min(posts.size(), 20); i++) {
+            sb.append(i + 1).append(". ").append(posts.get(i), 0, Math.min(posts.get(i).length(), 300)).append("\n\n");
+        }
+        sb.append("Extract this creator's writing voice for ").append(platformName)
+          .append(". Summarize in 3-4 sentences: their tone, sentence structure, vocabulary choices, ")
+          .append("humor level, use of slang/emojis, how personal vs. professional they are. ")
+          .append("This summary will be injected into future Claude prompts to match their voice. ")
+          .append("Be specific and actionable. Return ONLY the summary, no headers, no JSON.");
+
+        String system = "You are a professional writing analyst. Extract voice and style patterns from social media posts.";
+        return callClaude(system, sb.toString(), 512);
     }
 
     private Map<String, DraftDto> parseDrafts(String responseText, List<String> platforms) {

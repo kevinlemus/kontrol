@@ -29,4 +29,6 @@ public class ProjectContextDto {
     private String contextSource;
     /** Per-platform competitive notes. Key = platform code (e.g. "IG"), value = notes string. Transient — never persisted. */
     private Map<String, String> platformCompetitorNotes;
+    /** Per-platform voice profiles from historical post analysis. Key = platform code, value = voice summary. Transient — never persisted. */
+    private Map<String, String> platformVoiceProfiles;
 }

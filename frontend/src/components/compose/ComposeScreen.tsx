@@ -17,6 +17,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { projectsApi } from '../../api/projects'
 import { connectionsApi } from '../../api/connections'
 import type { GenerateResponse, PerformanceInsightDto } from '../../api/types'
+import { WhatsWorking } from './WhatsWorking'
 
 const ALL_PLATFORM_IDS: PlatformId[] = ['IG', 'TT', 'LI', 'RD', 'X', 'FB', 'YT', 'ST', 'IT', 'GJ']
 
@@ -837,6 +838,16 @@ export function ComposeScreen() {
     }))
   }, [])
 
+  const handleHookChange = useCallback((hook: string) => {
+    setState(prev => ({
+      ...prev,
+      drafts: {
+        ...prev.drafts,
+        [prev.activePlatformId]: { ...prev.drafts[prev.activePlatformId], hook },
+      },
+    }))
+  }, [])
+
   // ─── Desktop layout ─────────────────────────────────────────────────────────
 
   if (isDesktop) {
@@ -1038,6 +1049,7 @@ export function ComposeScreen() {
               onSubredditChange={handleSubredditChange}
               insights={insights}
               userName={userName}
+              onHookChange={handleHookChange}
             />
           </div>
         </div>
@@ -1321,6 +1333,11 @@ export function ComposeScreen() {
             />
           )
         })()}
+
+        {/* What's working — shown before generation when insight data is available */}
+        {!state.generated && (
+          <WhatsWorking insights={insights} selectedPlatforms={selectedPlatforms} />
+        )}
       </div>
 
       {/* Active card — takes remaining space */}
@@ -1351,6 +1368,7 @@ export function ComposeScreen() {
             onSubredditChange={handleSubredditChange}
             insights={insights}
             userName={userName}
+            onHookChange={handleHookChange}
           />
         )}
       </div>
