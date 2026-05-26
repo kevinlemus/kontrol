@@ -65,7 +65,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         <div
           style={{
             position: 'fixed',
-            top: 'calc(52px + max(env(safe-area-inset-top), 44px) + 8px)',
+            top: 'calc(52px + max(env(safe-area-inset-top), 47px) + 8px)',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 500,

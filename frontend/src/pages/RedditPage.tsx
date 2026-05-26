@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { PageHeader } from '../components/shared/PageHeader'
 import { Toggle } from '../components/shared/Toggle'
 import { useToast } from '../components/shared/Toast'
@@ -392,7 +392,6 @@ export function RedditPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [filterTab, setFilterTab] = useState<FilterTab>('all')
   const [newSubreddit, setNewSubreddit] = useState('')
-  const checkNowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   const [activeProjectName, setActiveProjectName] = useState<string | null>(null)
 
@@ -407,11 +406,25 @@ export function RedditPage() {
       .catch(() => {})
   }, [])
 
-  // Fetch real suggestions from API when active project is known
+  // Fetch monitors and suggestions from API when active project is known
   useEffect(() => {
     if (!activeProjectId) return
-    // Find the project name for accent lookup
     const projectName = activeProjectName ?? ''
+
+    // Load monitored subreddits from DB
+    redditApi.getMonitors(activeProjectId)
+      .then(monitors => {
+        setSubreddits(monitors.map(m => ({
+          id: m.id,
+          projectId: activeProjectId,
+          projectName,
+          subreddit: m.subreddit,
+          active: m.active,
+        })))
+      })
+      .catch(() => { /* backend offline — keep empty */ })
+
+    // Load suggestions
     redditApi.getSuggestions(activeProjectId)
       .then(apiSuggestions => {
         setSuggestions(apiSuggestions.map(s => ({
@@ -476,14 +489,6 @@ export function RedditPage() {
     redditApi.dismissSuggestion(id).catch(() => {})
   }
 
-  const handleCheckNow = () => {
-    showToast('Checking subreddits…')
-    if (checkNowTimerRef.current) clearTimeout(checkNowTimerRef.current)
-    checkNowTimerRef.current = setTimeout(() => {
-      showToast('No new posts found')
-    }, 1500)
-  }
-
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-base)' }}>
       <PageHeader title="Reddit" />
@@ -492,26 +497,12 @@ export function RedditPage() {
 
         {/* ── Section 1: Monitored Subreddits ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ marginBottom: 4 }}>
             <span style={{
               fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)',
               fontFamily: 'var(--font-body)',
             }}>
               Monitored Subreddits
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                Last checked: 2 hours ago
-              </span>
-              <button
-                onClick={handleCheckNow}
-                style={{
-                  background: 'none', border: 'none', color: 'var(--accent)',
-                  fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', padding: 0,
-                }}
-              >
-                Check now
-              </button>
             </span>
           </div>
 

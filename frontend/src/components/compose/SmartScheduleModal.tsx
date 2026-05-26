@@ -27,7 +27,7 @@ const SCHEDULE_ORDER: PlatformId[] = ['LI', 'X', 'RD', 'IG', 'FB', 'YT', 'TT', '
 // ─── Optimal time algorithm ────────────────────────────────────────────────────
 
 function getOptimalTime(platformId: PlatformId, prevTime?: Date): Date {
-  const now = new Date('2026-05-23T10:00:00')
+  const now = new Date()
 
   function todayAt(h: number, m = 0) {
     const d = new Date(now); d.setHours(h, m, 0, 0); return d
@@ -103,7 +103,7 @@ export function SmartScheduleModal({
 
   const [entries, setEntries] = useState<ScheduledEntry[]>(initialEntries)
 
-  const mockNow = new Date('2026-05-23')
+  const mockNow = new Date()
 
   return (
     <div

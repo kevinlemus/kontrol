@@ -263,12 +263,12 @@ function ComposeTopBar({ projectName, onProjectSwitch, activeProject, projects, 
 
   return (
     <div style={{
-      minHeight: 'calc(48px + max(env(safe-area-inset-top), 44px))',
+      minHeight: 'calc(48px + max(env(safe-area-inset-top), 47px))',
       display: 'flex',
       alignItems: 'flex-end',
       justifyContent: 'space-between',
       padding: '0 16px',
-      paddingTop: 'max(env(safe-area-inset-top), 44px)',
+      paddingTop: 'max(env(safe-area-inset-top), 47px)',
       flexShrink: 0,
       borderBottom: '1px solid rgba(255,255,255,0.05)',
       position: 'relative',

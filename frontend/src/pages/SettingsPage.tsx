@@ -63,7 +63,7 @@ interface PlatformAccount {
   account?: string
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Platform defaults ────────────────────────────────────────────────────────
 
 const INITIAL_PLATFORM_ACCOUNTS: PlatformAccount[] = [
   { key: 'IG', name: 'Instagram', gradient: 'linear-gradient(135deg, #F58529, #DD2A7B, #8134AF)', status: 'not_connected' },
@@ -439,12 +439,12 @@ function BackButton({ onBack }: { onBack: () => void }) {
 function SettingsHeader({ onBack }: { onBack: () => void }) {
   return (
     <header style={{
-      minHeight: 'calc(52px + max(env(safe-area-inset-top), 44px))',
+      minHeight: 'calc(52px + max(env(safe-area-inset-top), 47px))',
       display: 'flex',
       alignItems: 'flex-end',
       justifyContent: 'space-between',
       padding: '0 16px',
-      paddingTop: 'max(env(safe-area-inset-top), 44px)',
+      paddingTop: 'max(env(safe-area-inset-top), 47px)',
       borderBottom: '1px solid rgba(255,255,255,0.05)',
       flexShrink: 0,
       background: 'var(--bg-base)',
@@ -1323,7 +1323,7 @@ export function SettingsPage() {
         {/* Version info */}
         <div style={{ marginTop: 36, textAlign: 'center' }}>
           <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            kontrol v0.1.0 — sprint 2
+            kontrol v0.1.0
           </span>
         </div>
       </div>

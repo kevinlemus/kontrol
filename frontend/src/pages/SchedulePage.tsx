@@ -36,7 +36,7 @@ interface SmartBatch {
   posts: SmartBatchPost[]
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const PLATFORM_GRADIENTS: Record<PlatformKey, string> = {
   IG: 'linear-gradient(135deg, #F58529, #DD2A7B, #8134AF)',
@@ -685,7 +685,7 @@ export function SchedulePage() {
                   {batch.posts.map((post, i) => {
                     const t = new Date(post.scheduledAt)
                     const fallbackLabel = t.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-                    const isToday = t.toDateString() === new Date('2026-05-23').toDateString()
+                    const isToday = t.toDateString() === new Date().toDateString()
                     const timingEntry = scheduleTiming?.timings[post.platformId]
                     const displayLabel = timingEntry
                       ? `${timingEntry.personalized ? '\u{1F4CA} ' : ''}${timingEntry.label}`

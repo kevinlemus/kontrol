@@ -47,7 +47,7 @@ interface Project {
   contextSource?: string
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const ALL_PLATFORM_KEYS: PlatformKey[] = ['IG', 'TT', 'LI', 'RD', 'X', 'FB', 'YT', 'ST', 'IT', 'GJ']
 
