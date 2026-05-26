@@ -14,12 +14,62 @@ import RegisterPage from './pages/RegisterPage'
 import OnboardingPage from './pages/OnboardingPage'
 
 const NO_NAV_PATHS = ['/login', '/register', '/onboarding', '/settings']
+const STORAGE_KEY = 'kontrol_auth'
+
+// ─── Auth loading spinner ─────────────────────────────────────────────────────
+
+function AuthSpinner() {
+  return (
+    <>
+      <style>{`
+        @keyframes kontrol-spin { to { transform: rotate(360deg) } }
+      `}</style>
+      <div style={{
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--bg-base)',
+      }}>
+        <div style={{
+          width: 28,
+          height: 28,
+          border: '2.5px solid rgba(255,255,255,0.08)',
+          borderTopColor: '#3B82F6',
+          borderRadius: '50%',
+          animation: 'kontrol-spin 0.65s linear infinite',
+        }} />
+      </div>
+    </>
+  )
+}
+
+// ─── RequireAuth ──────────────────────────────────────────────────────────────
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth()
-  if (!user) return <Navigate to="/login" replace />
+  const { user, isAuthLoading } = useAuth()
+
+  // An auth API call (login/register) is actively in flight — hold position.
+  if (isAuthLoading) return <AuthSpinner />
+
+  // No user in context yet, but a token exists in localStorage.
+  // This covers the single render cycle between navigate() being called (in
+  // handleSubmit) and the setUser() update being committed through AuthContext.
+  // Show a spinner for that ~16 ms window instead of redirecting to /login.
+  if (!user) {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored && JSON.parse(stored)?.token) return <AuthSpinner />
+    } catch {
+      // malformed storage — fall through to redirect
+    }
+    return <Navigate to="/login" replace />
+  }
+
   return <>{children}</>
 }
+
+// ─── App shell ────────────────────────────────────────────────────────────────
 
 function AppShell() {
   const location = useLocation()

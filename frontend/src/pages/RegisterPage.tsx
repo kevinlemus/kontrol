@@ -35,6 +35,8 @@ export default function RegisterPage() {
     setError('')
     try {
       await register(name.trim(), email.trim(), password)
+      // register() persists the token + sets state before returning.
+      // Navigate directly — no need to wait for a useEffect on user state.
       navigate('/onboarding', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')

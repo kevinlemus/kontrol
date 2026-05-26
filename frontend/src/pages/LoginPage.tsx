@@ -11,7 +11,8 @@ export default function LoginPage() {
   const { login, user } = useAuth()
   const navigate = useNavigate()
 
-  // If already authed, redirect
+  // If the user is already authenticated when this page loads (e.g. navigating
+  // back to /login while logged in), redirect them away immediately.
   useEffect(() => {
     if (user) {
       navigate(user.onboardingCompleted === false ? '/onboarding' : '/', { replace: true })
@@ -26,10 +27,12 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      await login(email.trim(), password)
-      // Navigation handled by the useEffect above (user state update triggers it)
-      // But we also navigate immediately for snappiness
-      // We need the updated user from context — check onboarding after login
+      // login() persists the token to localStorage AND sets React state,
+      // then returns the user so we can navigate with the correct destination
+      // without relying on a useEffect watching the user state update (which
+      // would race against RequireAuth reading stale context on the new route).
+      const loggedInUser = await login(email.trim(), password)
+      navigate(loggedInUser.onboardingCompleted === false ? '/onboarding' : '/', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed')
     } finally {
