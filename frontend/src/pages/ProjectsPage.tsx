@@ -34,7 +34,6 @@ interface Project {
   accent: string
   whatItIs: string
   whoItsFor: string
-  vibe: string
   currentStatus: string
   active: boolean
   platforms: Record<PlatformKey, PlatformConfig>
@@ -43,6 +42,9 @@ interface Project {
   competitor1?: string
   competitor2?: string
   competitor3?: string
+  phone?: string
+  bookingUrl?: string
+  serviceArea?: string
   projectContextText?: string
   contextSource?: string
 }
@@ -729,7 +731,7 @@ function ContextTabsSection({
               onContextTextChange(e.target.value)
               setSavedOk(false)
             }}
-            placeholder="Describe your business, paste brand guidelines, mission statement, product descriptions, or any context Claude should know about this project."
+            placeholder={"Help Kontrol AI understand this business. Include:\n\n• What makes this business different from competitors\n• The tone they want (professional, casual, warm, urgent)\n• Their target customer in detail (age, location, pain points)\n• Any phrases or words they always use or never want used\n• Current promotions, seasonal focus, or key messages\n• Brand colors, aesthetic, or visual style if relevant\n\nThe more context you provide, the better every generated post will be."}
             style={textareaStyle}
           />
           {/* Save button — only shown in edit mode (projectId exists) */}
@@ -783,7 +785,7 @@ function ContextTabsSection({
           fontFamily: 'var(--font-body)',
           marginTop: 4,
         }}>
-          &#128196; Project context loaded &mdash; Claude will use this when generating posts for this project.
+          &#128196; Project context loaded &mdash; Kontrol AI will use this when generating posts for this project.
         </div>
       )}
     </div>
@@ -945,7 +947,6 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
       <InputField label="Name" value={form.name} onChange={v => setField('name', v)} />
       <InputField label="What it is" value={form.whatItIs} onChange={v => setField('whatItIs', v)} multiline />
       <InputField label="Who it's for" value={form.whoItsFor} onChange={v => setField('whoItsFor', v)} multiline />
-      <InputField label="Vibe" value={form.vibe} onChange={v => setField('vibe', v)} multiline />
       <InputField label="Current status" value={form.currentStatus} onChange={v => setField('currentStatus', v)} />
       <InputField label="Industry" value={form.industry ?? ''} onChange={v => setField('industry', v)} />
 
@@ -983,6 +984,10 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
           ))}
         </div>
       </div>
+
+      <InputField label="Phone (optional)" value={form.phone ?? ''} onChange={v => setField('phone', v)} />
+      <InputField label="Booking URL (optional)" value={form.bookingUrl ?? ''} onChange={v => setField('bookingUrl', v)} />
+      <InputField label="Service area (optional)" value={form.serviceArea ?? ''} onChange={v => setField('serviceArea', v)} />
 
       {/* ── Connected Accounts section ── */}
       {(() => {
@@ -1415,12 +1420,14 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
   const [name, setName] = useState('')
   const [whatItIs, setWhatItIs] = useState('')
   const [whoItsFor, setWhoItsFor] = useState('')
-  const [vibe, setVibe] = useState('')
   const [currentStatus, setCurrentStatus] = useState('')
   const [industry, setIndustry] = useState('')
   const [competitor1, setCompetitor1] = useState('')
   const [competitor2, setCompetitor2] = useState('')
   const [competitor3, setCompetitor3] = useState('')
+  const [phone, setPhone] = useState('')
+  const [bookingUrl, setBookingUrl] = useState('')
+  const [serviceArea, setServiceArea] = useState('')
 
   // URL analysis state
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -1456,7 +1463,6 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
       if (res.name) { setName(res.name); suggested.add('name') }
       if (res.what_it_is) { setWhatItIs(res.what_it_is); suggested.add('whatItIs') }
       if (res.who_its_for) { setWhoItsFor(res.who_its_for); suggested.add('whoItsFor') }
-      if (res.vibe) { setVibe(res.vibe); suggested.add('vibe') }
       if (res.industry) { setIndustry(res.industry); suggested.add('industry') }
       if (res.competitors) {
         const parts: string[] = Array.isArray(res.competitors)
@@ -1502,7 +1508,6 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
       accent: 'linear-gradient(135deg, #3B82F6, #6366F1)',
       whatItIs,
       whoItsFor,
-      vibe,
       currentStatus,
       active: false,
       personas: DEFAULT_PERSONAS,
@@ -1511,6 +1516,9 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
       competitor1: competitor1.trim() || undefined,
       competitor2: competitor2.trim() || undefined,
       competitor3: competitor3.trim() || undefined,
+      phone: phone.trim() || undefined,
+      bookingUrl: bookingUrl.trim() || undefined,
+      serviceArea: serviceArea.trim() || undefined,
       projectContextText: projectContextText.trim() || undefined,
       contextSource: contextSource || undefined,
     }
@@ -1671,19 +1679,6 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Vibe
-          </label>
-          <textarea
-            rows={2}
-            value={vibe}
-            onChange={e => { setVibe(e.target.value); clearSuggested('vibe') }}
-            style={inputBase}
-          />
-          <AiLabel field="vibe" />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
             Current status
           </label>
           <input
@@ -1751,6 +1746,21 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
           </div>
         </div>
 
+        {/* Contact info */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Contact &amp; CTA (optional)
+            </label>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+              Used in generated posts for real calls-to-action
+            </span>
+          </div>
+          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number" style={inputBase} />
+          <input type="url" value={bookingUrl} onChange={e => setBookingUrl(e.target.value)} placeholder="Booking or website URL" style={inputBase} />
+          <input type="text" value={serviceArea} onChange={e => setServiceArea(e.target.value)} placeholder="Service area (city, region, or 'nationwide')" style={inputBase} />
+        </div>
+
         <button
           onClick={handleCreate}
           style={{
@@ -1803,18 +1813,20 @@ function useIsNarrow() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-function DEFAULT_PROJECT_FROM_API(ap: { id: string; name: string; whatItIs?: string | null; whoItsFor?: string | null; vibe?: string | null; currentStatus?: string | null; active: boolean }): Project {
+function DEFAULT_PROJECT_FROM_API(ap: { id: string; name: string; whatItIs?: string | null; whoItsFor?: string | null; currentStatus?: string | null; active: boolean; phone?: string | null; bookingUrl?: string | null; serviceArea?: string | null }): Project {
   return {
     id: ap.id,
     name: ap.name,
     accent: 'linear-gradient(135deg, #3B82F6, #6366F1)',
     whatItIs: ap.whatItIs ?? '',
     whoItsFor: ap.whoItsFor ?? '',
-    vibe: ap.vibe ?? '',
     currentStatus: ap.currentStatus ?? '',
     active: ap.active,
     personas: DEFAULT_PERSONAS,
     platforms: { ...DEFAULT_PLATFORMS },
+    phone: ap.phone ?? undefined,
+    bookingUrl: ap.bookingUrl ?? undefined,
+    serviceArea: ap.serviceArea ?? undefined,
   }
 }
 
@@ -1860,8 +1872,10 @@ export function ProjectsPage() {
       name: updated.name,
       whatItIs: updated.whatItIs,
       whoItsFor: updated.whoItsFor,
-      vibe: updated.vibe,
       currentStatus: updated.currentStatus,
+      phone: updated.phone,
+      bookingUrl: updated.bookingUrl,
+      serviceArea: updated.serviceArea,
     }).catch(() => {})
   }, [])
 
@@ -1871,8 +1885,10 @@ export function ProjectsPage() {
       name: newProject.name,
       whatItIs: newProject.whatItIs,
       whoItsFor: newProject.whoItsFor,
-      vibe: newProject.vibe,
       currentStatus: newProject.currentStatus,
+      phone: newProject.phone,
+      bookingUrl: newProject.bookingUrl,
+      serviceArea: newProject.serviceArea,
     }).then(async created => {
       const projectWithId = { ...newProject, id: created.id }
       setProjects(ps => [...ps, projectWithId])

@@ -3,13 +3,15 @@ export interface ApiProject {
   name: string
   whatItIs: string | null
   whoItsFor: string | null
-  vibe: string | null
   currentStatus: string | null
   active: boolean
   industry?: string | null
   competitor1?: string | null
   competitor2?: string | null
   competitor3?: string | null
+  phone?: string | null
+  bookingUrl?: string | null
+  serviceArea?: string | null
 }
 
 export interface ApiDraft {

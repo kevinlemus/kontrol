@@ -31,12 +31,14 @@ interface StoredProject {
   platforms: Record<string, { enabled: boolean }>
   whatItIs?: string
   whoItsFor?: string
-  vibe?: string
   currentStatus?: string
   industry?: string
   competitor1?: string
   competitor2?: string
   competitor3?: string
+  phone?: string
+  bookingUrl?: string
+  serviceArea?: string
 }
 
 function getEnabledPlatformsFromProject(project: StoredProject | null, projectName: string): PlatformId[] {
@@ -247,7 +249,6 @@ function ComposeTopBar({ projectName, onProjectSwitch, activeProject, projects, 
   const infoRows: { label: string; value: string | undefined }[] = [
     { label: 'What it is', value: proj?.whatItIs },
     { label: "Who it's for", value: proj?.whoItsFor },
-    { label: 'Vibe', value: proj?.vibe },
     ...(proj?.industry ? [{ label: 'Industry', value: proj.industry }] : []),
     { label: 'Status', value: proj?.currentStatus },
   ]
@@ -528,12 +529,14 @@ export function ComposeScreen() {
           platforms: {},
           whatItIs: p.whatItIs ?? undefined,
           whoItsFor: p.whoItsFor ?? undefined,
-          vibe: p.vibe ?? undefined,
           currentStatus: p.currentStatus ?? undefined,
           industry: p.industry ?? undefined,
           competitor1: p.competitor1 ?? undefined,
           competitor2: p.competitor2 ?? undefined,
           competitor3: p.competitor3 ?? undefined,
+          phone: p.phone ?? undefined,
+          bookingUrl: p.bookingUrl ?? undefined,
+          serviceArea: p.serviceArea ?? undefined,
           // Assign first project as active if none are flagged
           ...(idx === 0 && !list.some(x => x.active) ? { active: true } : {}),
         }))

@@ -1020,6 +1020,7 @@ function MyProfileSection() {
 export function SettingsPage() {
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const { logout } = useAuth()
   const [searchParams] = useSearchParams()
 
   // Voice edits state — read from localStorage, refresh on focus
@@ -1106,6 +1107,15 @@ export function SettingsPage() {
     resetTimerRef.current = setTimeout(() => {
       navigate('/')
     }, 1000)
+  }
+
+  const handleLogout = () => {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('kontrol_'))
+      .forEach(k => localStorage.removeItem(k))
+    logout()
+    showToast('Logged out successfully')
+    navigate('/login')
   }
 
   return (
@@ -1318,6 +1328,27 @@ export function SettingsPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── Logout ── */}
+        <div style={{ marginTop: 24, marginBottom: 8 }}>
+          <button
+            onClick={handleLogout}
+            style={{
+              width: '100%',
+              padding: '13px 0',
+              background: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.2)',
+              borderRadius: 12,
+              color: 'rgba(239,68,68,0.85)',
+              fontFamily: 'var(--font-body)',
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: 'pointer',
+            }}
+          >
+            Log out
+          </button>
         </div>
 
         {/* Version info */}

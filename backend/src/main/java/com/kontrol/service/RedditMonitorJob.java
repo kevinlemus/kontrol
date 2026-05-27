@@ -83,8 +83,8 @@ public class RedditMonitorJob {
 
         UserContextDto userContext = userSettingsService.getUserContextFallback();
 
-        String ctx = String.format("Project: %s — %s. Audience: %s. Vibe: %s",
-            project.getName(), nvl(project.getWhatItIs()), nvl(project.getWhoItsFor()), nvl(project.getVibe()));
+        String ctx = String.format("Project: %s — %s. Audience: %s",
+            project.getName(), nvl(project.getWhatItIs()), nvl(project.getWhoItsFor()));
 
         int added = 0;
         for (JsonNode child : posts) {

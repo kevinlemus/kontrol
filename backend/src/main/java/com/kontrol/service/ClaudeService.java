@@ -187,10 +187,9 @@ public class ClaudeService {
                                       List<String> platforms,
                                       Map<String, List<PostPlatform>> editHistoryByPlatform) {
         String flatContext = String.format(
-            "Name: %s\nWhat it is: %s\nWho it's for: %s\nVibe: %s\nCurrent status: %s",
+            "Name: %s\nWhat it is: %s\nWho it's for: %s\nCurrent status: %s",
             nvl(project.getName()), nvl(project.getWhatItIs()),
-            nvl(project.getWhoItsFor()), nvl(project.getVibe()),
-            nvl(project.getCurrentStatus()));
+            nvl(project.getWhoItsFor()), nvl(project.getCurrentStatus()));
 
         // Build the base prompt using the existing string-based builder
         String base = buildSystemPrompt(project.getName(), userContext, flatContext, recentPosts,
@@ -303,6 +302,26 @@ public class ClaudeService {
               .append("Use it to inform tone, messaging, and content decisions:\n\n")
               .append(ctx)
               .append("\n\n");
+        }
+
+        // Contact info — inject real CTAs into prompts
+        String phone = project.getPhone();
+        String bookingUrl = project.getBookingUrl();
+        String serviceArea = project.getServiceArea();
+        boolean hasContact = (phone != null && !phone.isBlank())
+            || (bookingUrl != null && !bookingUrl.isBlank())
+            || (serviceArea != null && !serviceArea.isBlank());
+        if (hasContact) {
+            sb.append("CONTACT & CTA INFORMATION:\n");
+            if (phone != null && !phone.isBlank())
+                sb.append("Phone: ").append(phone).append("\n");
+            if (bookingUrl != null && !bookingUrl.isBlank())
+                sb.append("Booking/Website URL: ").append(bookingUrl).append("\n");
+            if (serviceArea != null && !serviceArea.isBlank())
+                sb.append("Service area: ").append(serviceArea).append("\n");
+            sb.append("When appropriate, weave these contact details naturally into posts as real calls-to-action. ")
+              .append("Use the phone number for service-oriented posts, the URL for booking/product posts, ")
+              .append("and reference the service area to make posts locally relevant.\n\n");
         }
 
         return sb.toString();

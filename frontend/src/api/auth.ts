@@ -81,7 +81,6 @@ export const authApi = {
     name?: string
     what_it_is?: string
     who_its_for?: string
-    vibe?: string
     suggested_tagline?: string
     industry?: string
     competitors?: string | string[]

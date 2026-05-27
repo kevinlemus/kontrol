@@ -52,7 +52,6 @@ public class GenerationService {
             .name(project.getName())
             .whatItIs(project.getWhatItIs())
             .whoItsFor(project.getWhoItsFor())
-            .vibe(project.getVibe())
             .currentStatus(project.getCurrentStatus())
             .industry(project.getIndustry())
             .competitor1(project.getCompetitor1())
@@ -60,6 +59,9 @@ public class GenerationService {
             .competitor3(project.getCompetitor3())
             .projectContextText(project.getProjectContextText())
             .contextSource(project.getContextSource())
+            .phone(project.getPhone())
+            .bookingUrl(project.getBookingUrl())
+            .serviceArea(project.getServiceArea())
             .build();
 
         // Build per-platform competitor notes from existing project data — no extra Claude API call

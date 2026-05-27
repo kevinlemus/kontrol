@@ -57,6 +57,15 @@ public class Project {
     @Column(name = "context_source")
     private String contextSource;
 
+    @Column(name = "phone")
+    private String phone;
+
+    @Column(name = "booking_url")
+    private String bookingUrl;
+
+    @Column(name = "service_area")
+    private String serviceArea;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

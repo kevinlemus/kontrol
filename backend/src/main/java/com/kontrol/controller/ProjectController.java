@@ -54,12 +54,13 @@ public class ProjectController {
         }
         Project p = Project.builder()
             .name(req.getName()).whatItIs(req.getWhatItIs())
-            .whoItsFor(req.getWhoItsFor()).vibe(req.getVibe())
+            .whoItsFor(req.getWhoItsFor())
             .currentStatus(req.getCurrentStatus()).active(false)
             .competitor1(req.getCompetitor1()).competitor2(req.getCompetitor2())
             .competitor3(req.getCompetitor3()).industry(req.getIndustry())
             .projectContextText(req.getProjectContextText())
             .contextSource(req.getContextSource())
+            .phone(req.getPhone()).bookingUrl(req.getBookingUrl()).serviceArea(req.getServiceArea())
             .build();
         return ResponseEntity.status(201).body(toDto(projectRepository.save(p)));
     }
@@ -75,12 +76,13 @@ public class ProjectController {
         }
         return projectRepository.findById(id).map(p -> {
             p.setName(req.getName()); p.setWhatItIs(req.getWhatItIs());
-            p.setWhoItsFor(req.getWhoItsFor()); p.setVibe(req.getVibe());
+            p.setWhoItsFor(req.getWhoItsFor());
             p.setCurrentStatus(req.getCurrentStatus());
             p.setCompetitor1(req.getCompetitor1()); p.setCompetitor2(req.getCompetitor2());
             p.setCompetitor3(req.getCompetitor3()); p.setIndustry(req.getIndustry());
             p.setProjectContextText(req.getProjectContextText());
             p.setContextSource(req.getContextSource());
+            p.setPhone(req.getPhone()); p.setBookingUrl(req.getBookingUrl()); p.setServiceArea(req.getServiceArea());
             return ResponseEntity.ok((Object) toDto(projectRepository.save(p)));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -251,12 +253,13 @@ public class ProjectController {
         return ProjectDto.builder()
             .id(p.getId().toString()).name(p.getName())
             .whatItIs(p.getWhatItIs()).whoItsFor(p.getWhoItsFor())
-            .vibe(p.getVibe()).currentStatus(p.getCurrentStatus())
+            .currentStatus(p.getCurrentStatus())
             .active(p.isActive())
             .competitor1(p.getCompetitor1()).competitor2(p.getCompetitor2())
             .competitor3(p.getCompetitor3()).industry(p.getIndustry())
             .projectContextText(p.getProjectContextText())
             .contextSource(p.getContextSource())
+            .phone(p.getPhone()).bookingUrl(p.getBookingUrl()).serviceArea(p.getServiceArea())
             .build();
     }
 }
