@@ -18,7 +18,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 export function BatchStatusBar({ drafts, activePlatformId, enabledPlatforms, desktop }: BatchStatusBarProps) {
   const visiblePlatforms = PLATFORMS.filter(p => enabledPlatforms.includes(p.id))
-  const visibleDrafts = visiblePlatforms.map(p => drafts[p.id])
+  // drafts[p.id] can be undefined before generation — filter out nullish entries for counters
+  const visibleDrafts = visiblePlatforms.map(p => drafts[p.id]).filter((d): d is PlatformDraft => d != null)
   const approved = visibleDrafts.filter(d => d.status === 'approved').length
   const skipped = visibleDrafts.filter(d => d.status === 'skipped').length
   const left = visibleDrafts.filter(d => d.status === 'pending' || d.status === 'draft').length
@@ -40,10 +41,11 @@ export function BatchStatusBar({ drafts, activePlatformId, enabledPlatforms, des
       }}>
         {visiblePlatforms.map(platform => {
           const draft = drafts[platform.id]
+          const draftStatus = draft?.status ?? 'pending'
           const isActive = platform.id === activePlatformId
           const color = isActive
             ? '#3B82F6'
-            : STATUS_COLORS[draft.status] ?? '#2A2A2A'
+            : STATUS_COLORS[draftStatus] ?? '#2A2A2A'
 
           return (
             <div
@@ -53,7 +55,7 @@ export function BatchStatusBar({ drafts, activePlatformId, enabledPlatforms, des
                 height: 4,
                 borderRadius: 2,
                 background: color,
-                opacity: isActive ? 1 : draft.status === 'pending' ? 0.6 : 1,
+                opacity: isActive ? 1 : draftStatus === 'pending' ? 0.6 : 1,
                 transition: 'background .3s',
               }}
             />

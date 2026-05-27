@@ -8,7 +8,7 @@ interface QueueRowProps {
 }
 
 export function QueueRow({ platform, draft, isActive, onClick }: QueueRowProps) {
-  const { status } = draft
+  const status = draft?.status ?? 'pending'
 
   function renderStatusIcon() {
     if (status === 'approved') {

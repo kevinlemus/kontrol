@@ -9,7 +9,7 @@ interface PlatformChipProps {
 }
 
 export function PlatformChip({ platform, draft, isActive, onClick, isConnected = true }: PlatformChipProps) {
-  const { status } = draft
+  const status = draft?.status ?? 'pending'
 
   const isApproved = status === 'approved'
   const isSkipped = status === 'skipped'
