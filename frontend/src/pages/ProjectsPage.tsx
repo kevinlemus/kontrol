@@ -265,12 +265,13 @@ function PlatformDot({ platformKey, enabled }: { platformKey: PlatformKey; enabl
 }
 
 function InputField({
-  label, value, onChange, multiline = false,
+  label, value, onChange, multiline = false, placeholder,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   multiline?: boolean
+  placeholder?: string
 }) {
   const base: React.CSSProperties = {
     width: '100%',
@@ -294,6 +295,7 @@ function InputField({
           rows={2}
           value={value}
           onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
           style={base}
         />
       ) : (
@@ -301,6 +303,7 @@ function InputField({
           type="text"
           value={value}
           onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
           style={base}
         />
       )}
@@ -945,10 +948,10 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
       gap: 14,
     }}>
       <InputField label="Name" value={form.name} onChange={v => setField('name', v)} />
-      <InputField label="What it is" value={form.whatItIs} onChange={v => setField('whatItIs', v)} multiline />
-      <InputField label="Who it's for" value={form.whoItsFor} onChange={v => setField('whoItsFor', v)} multiline />
-      <InputField label="Current status" value={form.currentStatus} onChange={v => setField('currentStatus', v)} />
-      <InputField label="Industry" value={form.industry ?? ''} onChange={v => setField('industry', v)} />
+      <InputField label="What it is" value={form.whatItIs} onChange={v => setField('whatItIs', v)} multiline placeholder="e.g. A local cleaning service specializing in residential deep cleans" />
+      <InputField label="Who it's for" value={form.whoItsFor} onChange={v => setField('whoItsFor', v)} multiline placeholder="e.g. Busy homeowners and families in the Chicago suburbs" />
+      <InputField label="Current status" value={form.currentStatus} onChange={v => setField('currentStatus', v)} placeholder="e.g. New business launching soon, Established brand wanting more engagement" />
+      <InputField label="Industry" value={form.industry ?? ''} onChange={v => setField('industry', v)} placeholder="e.g. Home services, Restaurant, Fitness, Tech, Retail" />
 
       {/* Competitors section */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -985,9 +988,9 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
         </div>
       </div>
 
-      <InputField label="Phone (optional)" value={form.phone ?? ''} onChange={v => setField('phone', v)} />
-      <InputField label="Booking URL (optional)" value={form.bookingUrl ?? ''} onChange={v => setField('bookingUrl', v)} />
-      <InputField label="Service area (optional)" value={form.serviceArea ?? ''} onChange={v => setField('serviceArea', v)} />
+      <InputField label="Phone (optional)" value={form.phone ?? ''} onChange={v => setField('phone', v)} placeholder="e.g. (555) 123-4567" />
+      <InputField label="Booking URL (optional)" value={form.bookingUrl ?? ''} onChange={v => setField('bookingUrl', v)} placeholder="e.g. https://yourbusiness.com/book" />
+      <InputField label="Service area (optional)" value={form.serviceArea ?? ''} onChange={v => setField('serviceArea', v)} placeholder="e.g. Chicago, IL and surrounding suburbs" />
 
       {/* ── Connected Accounts section ── */}
       {(() => {
@@ -1659,6 +1662,7 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
             rows={2}
             value={whatItIs}
             onChange={e => { setWhatItIs(e.target.value); clearSuggested('whatItIs') }}
+            placeholder="e.g. A local cleaning service specializing in residential deep cleans"
             style={inputBase}
           />
           <AiLabel field="whatItIs" />
@@ -1672,6 +1676,7 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
             rows={2}
             value={whoItsFor}
             onChange={e => { setWhoItsFor(e.target.value); clearSuggested('whoItsFor') }}
+            placeholder="e.g. Busy homeowners and families in the Chicago suburbs"
             style={inputBase}
           />
           <AiLabel field="whoItsFor" />
@@ -1685,6 +1690,7 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
             type="text"
             value={currentStatus}
             onChange={e => setCurrentStatus(e.target.value)}
+            placeholder="e.g. New business launching soon, Established brand wanting more engagement, Rebranding after inconsistent posting"
             style={inputBase}
           />
         </div>
@@ -1697,7 +1703,7 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
             type="text"
             value={industry}
             onChange={e => { setIndustry(e.target.value); clearSuggested('industry') }}
-            placeholder="e.g. Indie game development, AI music tools, B2B SaaS"
+            placeholder="e.g. Home services, Restaurant, Fitness, Tech, Retail"
             style={inputBase}
           />
           <AiLabel field="industry" />
@@ -1756,9 +1762,9 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
               Used in generated posts for real calls-to-action
             </span>
           </div>
-          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number" style={inputBase} />
-          <input type="url" value={bookingUrl} onChange={e => setBookingUrl(e.target.value)} placeholder="Booking or website URL" style={inputBase} />
-          <input type="text" value={serviceArea} onChange={e => setServiceArea(e.target.value)} placeholder="Service area (city, region, or 'nationwide')" style={inputBase} />
+          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. (555) 123-4567" style={inputBase} />
+          <input type="url" value={bookingUrl} onChange={e => setBookingUrl(e.target.value)} placeholder="e.g. https://yourbusiness.com/book" style={inputBase} />
+          <input type="text" value={serviceArea} onChange={e => setServiceArea(e.target.value)} placeholder="e.g. Chicago, IL and surrounding suburbs" style={inputBase} />
         </div>
 
         <button

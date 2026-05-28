@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Settings } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../shared/Toast'
 
@@ -155,9 +154,6 @@ function MenuButton({
 }
 
 export function PageHeader({ title, rightSlot }: PageHeaderProps) {
-  const navigate = useNavigate()
-  const [gearHovered, setGearHovered] = useState(false)
-
   return (
     <header style={{
       display: 'grid',
@@ -166,6 +162,7 @@ export function PageHeader({ title, rightSlot }: PageHeaderProps) {
       minHeight: 'calc(52px + max(env(safe-area-inset-top), 47px))',
       padding: '0 16px',
       paddingTop: 'max(env(safe-area-inset-top), 47px)',
+      paddingBottom: 10,
       borderBottom: '1px solid rgba(255,255,255,0.05)',
       flexShrink: 0,
       background: 'var(--bg-base)',
@@ -213,29 +210,6 @@ export function PageHeader({ title, rightSlot }: PageHeaderProps) {
         {rightSlot}
         {/* Avatar badge — opens dropdown with Settings and Log out */}
         <AvatarBadge size={32} />
-        {/* Gear icon as fallback / additional entry point */}
-        <button
-          onClick={() => navigate('/settings')}
-          onMouseEnter={() => setGearHovered(true)}
-          onMouseLeave={() => setGearHovered(false)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 28,
-            height: 28,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: gearHovered ? 'var(--text-primary)' : 'var(--text-muted)',
-            transition: 'color 0.15s ease',
-            padding: 0,
-            flexShrink: 0,
-          }}
-          aria-label="Settings"
-        >
-          <Settings size={18} />
-        </button>
       </div>
     </header>
   )
