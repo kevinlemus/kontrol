@@ -44,6 +44,18 @@ public class RedditSuggestion {
     @Column(name = "posted_at")
     private OffsetDateTime postedAt;
 
+    @Column(name = "comment_id")
+    private String commentId;
+
+    @Column(name = "is_reply")
+    private Boolean isReply;
+
+    @Column(name = "reply_to_username")
+    private String replyToUsername;
+
+    @Column(name = "reply_to_comment", columnDefinition = "TEXT")
+    private String replyToComment;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

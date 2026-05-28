@@ -29,9 +29,11 @@ interface Suggestion {
   status: SuggestionStatus
   createdAt: string
   postedAt?: string
-  timeAgo?: string
-  title?: string
-  url?: string
+  // reply strategy fields
+  isReply?: boolean | null
+  commentId?: string | null
+  replyToUsername?: string | null
+  replyToComment?: string | null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -122,10 +124,11 @@ function SubredditRow({
 }
 
 function SuggestionCard({
-  suggestion, onPost, onDismiss,
+  suggestion, onCopyAndOpen, onCopyOnly, onDismiss,
 }: {
   suggestion: Suggestion
-  onPost: (id: string, editedText?: string) => void
+  onCopyAndOpen: (id: string, text: string, url: string) => void
+  onCopyOnly: (id: string, text: string) => void
   onDismiss: (id: string) => void
 }) {
   const [showMore, setShowMore] = useState(false)
@@ -139,6 +142,8 @@ function SuggestionCard({
   const isDismissed = suggestion.status === 'dismissed'
   const isPosted = suggestion.status === 'posted'
   const isPending = suggestion.status === 'pending'
+
+  const commentText = editing ? editText : suggestion.suggestedComment
 
   return (
     <div style={{
@@ -160,7 +165,7 @@ function SuggestionCard({
         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
           {suggestion.projectName}
         </span>
-        {/* Subreddit */}
+        {/* Subreddit chip */}
         <span style={{ fontSize: 12, color: '#FF6534', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
           {suggestion.subreddit}
         </span>
@@ -171,7 +176,7 @@ function SuggestionCard({
       </div>
 
       {/* Post title */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 10 }}>
         <p style={{
           fontSize: 14, fontWeight: 700,
           color: 'var(--text-primary)', fontFamily: 'var(--font-body)',
@@ -197,6 +202,54 @@ function SuggestionCard({
           </svg>
         </a>
       </div>
+
+      {/* Comment strategy indicator */}
+      {suggestion.isReply ? (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            padding: '4px 10px', borderRadius: 999,
+            background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)',
+            marginBottom: suggestion.replyToComment ? 8 : 0,
+          }}>
+            <span style={{ fontSize: 12 }}>💬</span>
+            <span style={{ fontSize: 11, color: '#F59E0B', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+              Best as reply to @{suggestion.replyToUsername || 'commenter'}
+            </span>
+          </div>
+          {suggestion.replyToComment && (
+            <div style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderLeft: '3px solid rgba(245,158,11,0.5)',
+              borderRadius: '0 8px 8px 0',
+              padding: '8px 12px',
+              fontSize: 12,
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-body)',
+              lineHeight: 1.5,
+              fontStyle: 'italic',
+            }}>
+              "{suggestion.replyToComment.length > 160
+                ? suggestion.replyToComment.slice(0, 160) + '…'
+                : suggestion.replyToComment}"
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            padding: '4px 10px', borderRadius: 999,
+            background: 'rgba(59,130,246,0.10)', border: '1px solid rgba(59,130,246,0.2)',
+          }}>
+            <span style={{ fontSize: 12 }}>📝</span>
+            <span style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+              Best as top-level comment
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Divider */}
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', marginBottom: 12 }} />
@@ -259,7 +312,7 @@ function SuggestionCard({
           background: 'rgba(30,215,96,0.12)', border: '1px solid rgba(30,215,96,0.3)',
         }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1ED760' }} />
-          <span style={{ fontSize: 11, color: '#1ED760', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>Posted</span>
+          <span style={{ fontSize: 11, color: '#1ED760', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>Copied &amp; Posted</span>
         </div>
       )}
       {isDismissed && (
@@ -275,9 +328,11 @@ function SuggestionCard({
       {/* Pending actions — normal view */}
       {isPending && !editing && (
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+          {/* Copy & Open — primary CTA */}
           <button
-            onClick={() => onPost(suggestion.id)}
+            onClick={() => onCopyAndOpen(suggestion.id, commentText, suggestion.postUrl)}
             style={{
+              display: 'flex', alignItems: 'center', gap: 6,
               padding: '8px 18px',
               borderRadius: 999,
               background: '#1ED760',
@@ -289,8 +344,13 @@ function SuggestionCard({
               cursor: 'pointer',
             }}
           >
-            Post Comment
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <rect x="1" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+              <path d="M4 4V3a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            Copy &amp; Open
           </button>
+          {/* Edit (before copying) */}
           <button
             onClick={() => { setEditing(true); setEditText(suggestion.suggestedComment) }}
             style={{
@@ -305,8 +365,9 @@ function SuggestionCard({
               cursor: 'pointer',
             }}
           >
-            Edit &amp; Post
+            Edit
           </button>
+          {/* Dismiss */}
           <button
             onClick={() => onDismiss(suggestion.id)}
             style={{
@@ -328,22 +389,37 @@ function SuggestionCard({
 
       {/* Edit mode actions */}
       {isPending && editing && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           <button
-            onClick={() => { onPost(suggestion.id, editText); setEditing(false) }}
+            onClick={() => { onCopyAndOpen(suggestion.id, editText, suggestion.postUrl); setEditing(false) }}
             style={{
-              padding: '8px 20px', borderRadius: 999,
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 18px', borderRadius: 999,
               background: '#1ED760', color: '#000', border: 'none',
               fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 800, cursor: 'pointer',
             }}
           >
-            Post
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <rect x="1" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+              <path d="M4 4V3a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            Copy &amp; Open
+          </button>
+          <button
+            onClick={() => { onCopyOnly(suggestion.id, editText); setEditing(false) }}
+            style={{
+              padding: '8px 18px', borderRadius: 999,
+              border: '1px solid rgba(255,255,255,0.12)', background: 'none',
+              color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            Copy only
           </button>
           <button
             onClick={() => { setEditing(false); setEditText(suggestion.suggestedComment) }}
             style={{
               padding: '8px 18px', borderRadius: 999,
-              border: '1px solid rgba(255,255,255,0.12)', background: 'none',
+              border: '1px solid rgba(255,255,255,0.07)', background: 'none',
               color: 'var(--text-muted)', fontFamily: 'var(--font-body)', fontSize: 13, cursor: 'pointer',
             }}
           >
@@ -371,7 +447,7 @@ function SuggestionsEmpty() {
         No suggestions yet
       </span>
       <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', textAlign: 'center', opacity: 0.6 }}>
-        Monitor is checking every 4 hours
+        Monitor is checking every 2 hours
       </span>
     </div>
   )
@@ -437,7 +513,11 @@ export function RedditPage() {
           suggestedComment: s.suggestedComment,
           status: s.status,
           createdAt: new Date().toISOString(),
-          postedAt: undefined,
+          postedAt: s.postedAt ?? undefined,
+          isReply: s.isReply,
+          commentId: s.commentId,
+          replyToUsername: s.replyToUsername,
+          replyToComment: s.replyToComment,
         })))
       })
       .catch(() => { /* backend offline — empty state already shown */ })
@@ -472,20 +552,29 @@ export function RedditPage() {
     setNewSubreddit('')
   }
 
-  const handlePost = (id: string, editedText?: string) => {
+  const handleCopyAndOpen = (id: string, text: string, url: string) => {
+    // Copy to clipboard
+    navigator.clipboard.writeText(text).catch(() => {})
+    // Open Reddit post in new tab
+    window.open(url, '_blank', 'noreferrer')
+    // Mark as posted in local state
     setSuggestions(ss => ss.map(s => s.id === id
       ? { ...s, status: 'posted' as const, postedAt: new Date().toISOString() }
       : s
     ))
-    showToast('Comment posted!')
-    // Fire and forget API call
-    redditApi.postComment(id, editedText).catch(() => {})
+    showToast('Copied! Paste your comment on Reddit.')
+    // Update DB status
+    redditApi.postComment(id, text).catch(() => {})
+  }
+
+  const handleCopyOnly = (_id: string, text: string) => {
+    navigator.clipboard.writeText(text).catch(() => {})
+    showToast('Copied to clipboard.')
   }
 
   const handleDismiss = (id: string) => {
     setSuggestions(ss => ss.map(s => s.id === id ? { ...s, status: 'dismissed' as const } : s))
     showToast('Dismissed')
-    // Fire and forget API call
     redditApi.dismissSuggestion(id).catch(() => {})
   }
 
@@ -497,12 +586,23 @@ export function RedditPage() {
 
         {/* ── Section 1: Monitored Subreddits ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <span style={{
               fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)',
               fontFamily: 'var(--font-body)',
             }}>
               Monitored Subreddits
+            </span>
+            {/* Active status chip */}
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '3px 8px', borderRadius: 999,
+              background: 'rgba(30,215,96,0.12)', border: '1px solid rgba(30,215,96,0.25)',
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#1ED760' }} />
+              <span style={{ fontSize: 10, color: '#1ED760', fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: 0.3 }}>
+                Active ✓
+              </span>
             </span>
           </div>
 
@@ -625,15 +725,31 @@ export function RedditPage() {
               <SuggestionCard
                 key={s.id}
                 suggestion={s}
-                onPost={(id, editedText) => handlePost(id, editedText)}
+                onCopyAndOpen={handleCopyAndOpen}
+                onCopyOnly={handleCopyOnly}
                 onDismiss={handleDismiss}
               />
             ))
+          )}
+
+          {/* Manual posting note */}
+          {filtered.length > 0 && (
+            <div style={{
+              marginTop: 24,
+              padding: '10px 14px',
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+            }}>
+              <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>💡</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                Kontrol finds relevant conversations — you post manually for authentic engagement.
+              </span>
+            </div>
           )}
         </div>
       </div>
     </div>
   )
 }
-
-// FRONTEND-AGENT: RedditPage complete (Task A + Task E wired)

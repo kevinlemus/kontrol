@@ -52,11 +52,16 @@ export interface GenerateResponse {
 export interface ApiRedditSuggestion {
   id: string
   subreddit: string
+  redditPostId?: string | null
   redditPostTitle: string
   redditPostUrl: string
   suggestedComment: string
   status: 'pending' | 'posted' | 'dismissed'
   postedAt?: string | null
+  commentId?: string | null
+  isReply?: boolean | null
+  replyToUsername?: string | null
+  replyToComment?: string | null
 }
 
 export interface PerformanceInsightDto {

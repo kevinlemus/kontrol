@@ -15,4 +15,9 @@ public class RedditSuggestionDto {
     private String status;
     private String postedAt;
     private String createdAt;
+    private String redditPostId;
+    private String commentId;
+    private Boolean isReply;
+    private String replyToUsername;
+    private String replyToComment;
 }

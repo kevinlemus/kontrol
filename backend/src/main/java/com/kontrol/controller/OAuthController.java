@@ -59,7 +59,6 @@ public class OAuthController {
     // Required permissions: instagram_basic, instagram_content_publish, pages_manage_posts
     @Value("${meta.app.id:}") private String metaAppId;
     @Value("${meta.app.secret:}") private String metaAppSecret;
-    @Value("${meta.redirect-uri:http://localhost:8080/api/v1/oauth/instagram/callback}") private String metaRedirectUri;
 
     @GetMapping("/instagram/authorize")
     public ResponseEntity<Void> instagramAuthorize(
@@ -74,7 +73,7 @@ public class OAuthController {
         String url = UriComponentsBuilder
             .fromUriString("https://www.facebook.com/v18.0/dialog/oauth")
             .queryParam("client_id", metaAppId)
-            .queryParam("redirect_uri", metaRedirectUri)
+            .queryParam("redirect_uri", getRedirectUri("INSTAGRAM_REDIRECT_URI", "/api/v1/oauth/instagram/callback"))
             .queryParam("scope", "instagram_basic,instagram_content_publish,pages_manage_posts,pages_read_engagement")
             .queryParam("state", state)
             .build().toUriString();
@@ -93,7 +92,7 @@ public class OAuthController {
                 .uri("https://graph.facebook.com/v18.0/oauth/access_token"
                     + "?client_id=" + metaAppId
                     + "&client_secret=" + metaAppSecret
-                    + "&redirect_uri=" + metaRedirectUri
+                    + "&redirect_uri=" + getRedirectUri("INSTAGRAM_REDIRECT_URI", "/api/v1/oauth/instagram/callback")
                     + "&code=" + code)
                 .retrieve().bodyToMono(String.class).block();
             JsonNode tokenJson = objectMapper.readTree(tokenResp);
@@ -128,8 +127,6 @@ public class OAuthController {
 
     // ── Facebook ─────────────────────────────────────────────────────────────
 
-    @Value("${meta.fb-redirect-uri:http://localhost:8080/api/v1/oauth/facebook/callback}") private String fbRedirectUri;
-
     @GetMapping("/facebook/authorize")
     public ResponseEntity<Void> facebookAuthorize(
             @RequestParam(value = "project_id", required = false) String projectId) {
@@ -143,7 +140,7 @@ public class OAuthController {
         String url = UriComponentsBuilder
             .fromUriString("https://www.facebook.com/v18.0/dialog/oauth")
             .queryParam("client_id", metaAppId)
-            .queryParam("redirect_uri", fbRedirectUri)
+            .queryParam("redirect_uri", getRedirectUri("FACEBOOK_REDIRECT_URI", "/api/v1/oauth/facebook/callback"))
             .queryParam("scope", "pages_manage_posts,pages_read_engagement,pages_show_list")
             .queryParam("state", state)
             .build().toUriString();
@@ -161,7 +158,7 @@ public class OAuthController {
                 .uri("https://graph.facebook.com/v18.0/oauth/access_token"
                     + "?client_id=" + metaAppId
                     + "&client_secret=" + metaAppSecret
-                    + "&redirect_uri=" + fbRedirectUri
+                    + "&redirect_uri=" + getRedirectUri("FACEBOOK_REDIRECT_URI", "/api/v1/oauth/facebook/callback")
                     + "&code=" + code)
                 .retrieve().bodyToMono(String.class).block();
             JsonNode json = objectMapper.readTree(tokenResp);
@@ -190,7 +187,6 @@ public class OAuthController {
     // NOTE: Content Posting API requires separate developer approval (~2 weeks)
     @Value("${tiktok.client.key:}") private String tiktokClientKey;
     @Value("${tiktok.client.secret:}") private String tiktokClientSecret;
-    @Value("${tiktok.redirect-uri:http://localhost:8080/api/v1/oauth/tiktok/callback}") private String tiktokRedirectUri;
 
     @GetMapping("/tiktok/authorize")
     public ResponseEntity<Void> tiktokAuthorize(
@@ -207,7 +203,7 @@ public class OAuthController {
             .queryParam("client_key", tiktokClientKey)
             .queryParam("scope", "user.info.basic,video.publish,video.upload")
             .queryParam("response_type", "code")
-            .queryParam("redirect_uri", tiktokRedirectUri)
+            .queryParam("redirect_uri", getRedirectUri("TIKTOK_REDIRECT_URI", "/api/v1/oauth/tiktok/callback"))
             .queryParam("state", state)
             .build().toUriString();
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
@@ -227,7 +223,7 @@ public class OAuthController {
                     + "&client_secret=" + tiktokClientSecret
                     + "&code=" + code
                     + "&grant_type=authorization_code"
-                    + "&redirect_uri=" + tiktokRedirectUri)
+                    + "&redirect_uri=" + getRedirectUri("TIKTOK_REDIRECT_URI", "/api/v1/oauth/tiktok/callback"))
                 .retrieve().bodyToMono(String.class).block();
             JsonNode json = objectMapper.readTree(tokenResp).path("data");
             String accessToken = json.path("access_token").asText();
@@ -249,7 +245,6 @@ public class OAuthController {
     // Required permissions: r_liteprofile, w_member_social
     @Value("${linkedin.client.id:}") private String linkedinClientId;
     @Value("${linkedin.client.secret:}") private String linkedinClientSecret;
-    @Value("${linkedin.redirect-uri:http://localhost:8080/api/v1/oauth/linkedin/callback}") private String linkedinRedirectUri;
 
     @GetMapping("/linkedin/authorize")
     public ResponseEntity<Void> linkedinAuthorize(
@@ -265,7 +260,7 @@ public class OAuthController {
             .fromUriString("https://www.linkedin.com/oauth/v2/authorization")
             .queryParam("response_type", "code")
             .queryParam("client_id", linkedinClientId)
-            .queryParam("redirect_uri", linkedinRedirectUri)
+            .queryParam("redirect_uri", getRedirectUri("LINKEDIN_REDIRECT_URI", "/api/v1/oauth/linkedin/callback"))
             .queryParam("scope", "r_liteprofile w_member_social")
             .queryParam("state", state)
             .build().toUriString();
@@ -284,7 +279,7 @@ public class OAuthController {
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .bodyValue("grant_type=authorization_code"
                     + "&code=" + code
-                    + "&redirect_uri=" + linkedinRedirectUri
+                    + "&redirect_uri=" + getRedirectUri("LINKEDIN_REDIRECT_URI", "/api/v1/oauth/linkedin/callback")
                     + "&client_id=" + linkedinClientId
                     + "&client_secret=" + linkedinClientSecret)
                 .retrieve().bodyToMono(String.class).block();
@@ -312,7 +307,6 @@ public class OAuthController {
     // For posting comments as a user, OAuth2 is required (password flow only for scripts)
     @Value("${reddit.client.id:}") private String redditClientId;
     @Value("${reddit.client.secret:}") private String redditClientSecret;
-    @Value("${reddit.redirect-uri:http://localhost:8080/api/v1/oauth/reddit/callback}") private String redditRedirectUri;
 
     @GetMapping("/reddit/authorize")
     public ResponseEntity<Void> redditAuthorize(
@@ -328,7 +322,7 @@ public class OAuthController {
             .queryParam("client_id", redditClientId)
             .queryParam("response_type", "code")
             .queryParam("state", state)
-            .queryParam("redirect_uri", redditRedirectUri)
+            .queryParam("redirect_uri", getRedirectUri("REDDIT_REDIRECT_URI", "/api/v1/oauth/reddit/callback"))
             .queryParam("duration", "permanent")
             .queryParam("scope", "submit,identity,read")
             .build().toUriString();
@@ -350,7 +344,7 @@ public class OAuthController {
                 .header("User-Agent", "Kontrol/0.1")
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .bodyValue("grant_type=authorization_code&code=" + code
-                    + "&redirect_uri=" + redditRedirectUri)
+                    + "&redirect_uri=" + getRedirectUri("REDDIT_REDIRECT_URI", "/api/v1/oauth/reddit/callback"))
                 .retrieve().bodyToMono(String.class).block();
             JsonNode json = objectMapper.readTree(tokenResp);
             String accessToken = json.path("access_token").asText();
@@ -372,7 +366,6 @@ public class OAuthController {
     // Required: Elevated access + OAuth 2.0 enabled in app settings
     @Value("${twitter.oauth2.client-id:}") private String twitterClientId;
     @Value("${twitter.oauth2.client-secret:}") private String twitterClientSecret;
-    @Value("${twitter.redirect-uri:http://localhost:8080/api/v1/oauth/twitter/callback}") private String twitterRedirectUri;
 
     @GetMapping("/twitter/authorize")
     public ResponseEntity<Void> twitterAuthorize(
@@ -390,7 +383,7 @@ public class OAuthController {
             .fromUriString("https://twitter.com/i/oauth2/authorize")
             .queryParam("response_type", "code")
             .queryParam("client_id", twitterClientId)
-            .queryParam("redirect_uri", twitterRedirectUri)
+            .queryParam("redirect_uri", getRedirectUri("TWITTER_REDIRECT_URI", "/api/v1/oauth/twitter/callback"))
             .queryParam("scope", "tweet.read tweet.write users.read offline.access")
             .queryParam("state", state)
             .queryParam("code_challenge", "challenge") // TODO: implement PKCE properly
@@ -413,7 +406,7 @@ public class OAuthController {
                 .header("Authorization", "Basic " + creds)
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .bodyValue("grant_type=authorization_code&code=" + code
-                    + "&redirect_uri=" + twitterRedirectUri
+                    + "&redirect_uri=" + getRedirectUri("TWITTER_REDIRECT_URI", "/api/v1/oauth/twitter/callback")
                     + "&code_verifier=challenge") // TODO: use real PKCE verifier
                 .retrieve().bodyToMono(String.class).block();
             JsonNode json = objectMapper.readTree(tokenResp);
@@ -435,7 +428,6 @@ public class OAuthController {
     // Enable YouTube Data API v3 in APIs & Services → Library
     @Value("${youtube.client.id:}") private String youtubeClientId;
     @Value("${youtube.client.secret:}") private String youtubeClientSecret;
-    @Value("${youtube.redirect-uri:http://localhost:8080/api/v1/oauth/youtube/callback}") private String youtubeRedirectUri;
 
     @GetMapping("/youtube/authorize")
     public ResponseEntity<Void> youtubeAuthorize(
@@ -451,7 +443,7 @@ public class OAuthController {
         String url = UriComponentsBuilder
             .fromUriString("https://accounts.google.com/o/oauth2/v2/auth")
             .queryParam("client_id", youtubeClientId)
-            .queryParam("redirect_uri", youtubeRedirectUri)
+            .queryParam("redirect_uri", getRedirectUri("YOUTUBE_REDIRECT_URI", "/api/v1/oauth/youtube/callback"))
             .queryParam("response_type", "code")
             .queryParam("scope", "https://www.googleapis.com/auth/youtube.force-ssl")
             .queryParam("access_type", "offline")
@@ -473,7 +465,7 @@ public class OAuthController {
                 .bodyValue("code=" + code
                     + "&client_id=" + youtubeClientId
                     + "&client_secret=" + youtubeClientSecret
-                    + "&redirect_uri=" + youtubeRedirectUri
+                    + "&redirect_uri=" + getRedirectUri("YOUTUBE_REDIRECT_URI", "/api/v1/oauth/youtube/callback")
                     + "&grant_type=authorization_code")
                 .retrieve().bodyToMono(String.class).block();
             JsonNode json = objectMapper.readTree(tokenResp);
@@ -550,6 +542,17 @@ public class OAuthController {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Resolve redirect URI: env var takes precedence over localhost default.
+     * On Render, set INSTAGRAM_REDIRECT_URI etc. to your production callback URL.
+     */
+    private String getRedirectUri(String envVar, String path) {
+        String envValue = System.getenv(envVar);
+        return (envValue != null && !envValue.isBlank())
+            ? envValue
+            : "http://localhost:8080" + path;
+    }
 
     /**
      * Save a token either to global_platform_accounts (when projectIdOrGlobal == "global")

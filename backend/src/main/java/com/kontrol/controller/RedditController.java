@@ -94,10 +94,15 @@ public class RedditController {
     private RedditSuggestionDto toDto(RedditSuggestion s) {
         return RedditSuggestionDto.builder()
             .id(s.getId().toString()).subreddit(s.getSubreddit())
+            .redditPostId(s.getRedditPostId())
             .redditPostTitle(s.getRedditPostTitle()).redditPostUrl(s.getRedditPostUrl())
             .suggestedComment(s.getSuggestedComment()).status(s.getStatus())
             .postedAt(s.getPostedAt() != null ? s.getPostedAt().toString() : null)
             .createdAt(s.getCreatedAt() != null ? s.getCreatedAt().toString() : null)
+            .commentId(s.getCommentId())
+            .isReply(s.getIsReply())
+            .replyToUsername(s.getReplyToUsername())
+            .replyToComment(s.getReplyToComment())
             .build();
     }
 }
