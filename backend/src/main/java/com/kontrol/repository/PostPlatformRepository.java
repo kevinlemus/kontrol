@@ -72,4 +72,47 @@ public interface PostPlatformRepository extends JpaRepository<PostPlatform, UUID
 
     @Query(value = "SELECT pp.status, COUNT(*) FROM post_platforms pp JOIN posts p ON pp.post_id = p.id WHERE p.project_id = CAST(:projectId AS uuid) AND pp.platform = :platform GROUP BY pp.status", nativeQuery = true)
     List<Object[]> countStatusBreakdownByProjectAndPlatform(@Param("projectId") String projectId, @Param("platform") String platform);
+
+    // Content mix queries for calendar intelligence
+
+    @Query(value = """
+        SELECT pp.content_type, COUNT(*) as cnt
+        FROM post_platforms pp
+        JOIN posts p ON pp.post_id = p.id
+        WHERE p.project_id = :projectId
+          AND p.published_at >= NOW() - INTERVAL '30 days'
+          AND pp.content_type IS NOT NULL
+        GROUP BY pp.content_type
+        """, nativeQuery = true)
+    List<Object[]> countByContentTypeForProject(@Param("projectId") UUID projectId);
+
+    @Query(value = """
+        SELECT pp.content_type
+        FROM post_platforms pp
+        JOIN posts p ON pp.post_id = p.id
+        WHERE p.project_id = :projectId
+          AND pp.content_type IS NOT NULL
+        ORDER BY p.published_at DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<String> findRecentContentTypes(@Param("projectId") UUID projectId, @Param("limit") int limit);
+
+    @Query(value = """
+        SELECT pp.content_type, AVG(pp.performance_score) as avg_score
+        FROM post_platforms pp
+        JOIN posts p ON pp.post_id = p.id
+        WHERE p.project_id = :projectId
+          AND pp.content_type IS NOT NULL
+          AND pp.performance_score > 0
+        GROUP BY pp.content_type
+        """, nativeQuery = true)
+    List<Object[]> avgScoreByContentType(@Param("projectId") UUID projectId);
+
+    @Query(value = """
+        SELECT COUNT(DISTINCT p.id)
+        FROM posts p
+        WHERE p.project_id = :projectId
+          AND p.published_at >= NOW() - INTERVAL '30 days'
+        """, nativeQuery = true)
+    long countPublishedLast30Days(@Param("projectId") UUID projectId);
 }

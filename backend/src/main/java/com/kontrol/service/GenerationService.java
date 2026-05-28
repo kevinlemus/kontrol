@@ -22,6 +22,7 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -129,12 +130,15 @@ public class GenerationService {
         post = postRepository.save(post);
 
         for (Map.Entry<String, DraftDto> entry : drafts.entrySet()) {
+            String contentType = classifyContentType(entry.getValue().getContent());
+
             PostPlatform.PostPlatformBuilder builder = PostPlatform.builder()
                 .postId(post.getId())
                 .platform(entry.getKey())
                 .content(entry.getValue().getContent())
                 .originalContent(entry.getValue().getContent())
                 .postType(entry.getValue().getPostType())
+                .contentType(contentType)
                 .status("pending");
 
             // Persist subreddit selection for Reddit posts
@@ -157,6 +161,38 @@ public class GenerationService {
             .drafts(drafts)
             .insights(insights)
             .build();
+    }
+
+    private String classifyContentType(String content) {
+        if (content == null || content.isBlank()) {
+            return "other";
+        }
+        String systemPrompt = """
+            You are a content classifier. Given social media post content, classify it into exactly one of these types:
+            before_after, tip, promotional, testimonial, behind_scenes, announcement, engagement, other
+
+            Rules:
+            - before_after: shows transformation, results, comparison
+            - tip: educational, how-to, advice, tutorial
+            - promotional: sale, discount, product/service pitch, call to action to buy
+            - testimonial: customer quote, review, success story
+            - behind_scenes: process, team, day-in-life, making-of
+            - announcement: launch, news, event, new offering
+            - engagement: question, poll, challenge, community prompt
+            - other: doesn't fit above categories
+
+            Return ONLY the type string, nothing else. No punctuation, no explanation.
+            """;
+        try {
+            String result = claudeService.callClaudeRaw(systemPrompt, content, 20);
+            String cleaned = result.trim().toLowerCase().replaceAll("[^a-z_]", "");
+            Set<String> validTypes = Set.of("before_after", "tip", "promotional", "testimonial",
+                "behind_scenes", "announcement", "engagement", "other");
+            return validTypes.contains(cleaned) ? cleaned : "other";
+        } catch (Exception e) {
+            log.warn("Content type classification failed: {}", e.getMessage());
+            return "other";
+        }
     }
 
 }

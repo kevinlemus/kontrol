@@ -8,6 +8,39 @@ export interface StrategySuggestion {
   reason: string
   contentType: string
   suggestedPrompt: string
+  estimatedEngagement?: 'above_average' | 'average' | 'below_average'
+}
+
+export interface ContentMixData {
+  contentMixCounts: Record<string, number>
+  contentMixPercents: Record<string, number>
+  recentTypes: string[]
+  totalPostsLast30Days: number
+  mixWarning: string | null
+  mixBalanced: boolean
+}
+
+export interface StrategyResponse {
+  suggestions: StrategySuggestion[]
+  contentMixCounts: Record<string, number>
+  contentMixPercents: Record<string, number>
+  recentTypes: string[]
+  totalPostsLast30Days: number
+  mixWarning: string | null
+  mixBalanced: boolean
+}
+
+export interface DayPlan {
+  dayIndex: number
+  dayLabel: string
+  platform: string
+  contentType: string
+  topic: string
+  suggestedPrompt: string
+}
+
+export interface WeeklyPlanResponse {
+  days: DayPlan[]
 }
 
 export interface CompetitorAnalysis {
@@ -34,8 +67,11 @@ export interface AdCampaign {
 }
 
 export const strategyApi = {
-  suggestions: (projectId: string): Promise<StrategySuggestion[]> =>
+  suggestions: (projectId: string): Promise<StrategyResponse | StrategySuggestion[]> =>
     api.get(`/api/v1/strategy/suggestions?projectId=${projectId}`),
+
+  fetchWeeklyPlan: (projectId: string): Promise<WeeklyPlanResponse> =>
+    api.get(`/api/v1/strategy/weekly-plan?projectId=${projectId}`),
 
   analyzeCompetitor: (payload: {
     projectId: string

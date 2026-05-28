@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.UUID;
 
 // BACKEND-AGENT: GET /api/v1/strategy/suggestions complete
+// BACKEND-AGENT: GET /api/v1/strategy/weekly-plan complete
 @RestController
 @RequestMapping("/api/v1/strategy")
 @RequiredArgsConstructor
@@ -26,6 +27,18 @@ public class StrategyController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Strategy suggestions failed: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/weekly-plan")
+    public ResponseEntity<?> weeklyPlan(@RequestParam String projectId) {
+        try {
+            return ResponseEntity.ok(strategyService.generateWeeklyPlan(UUID.fromString(projectId)));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Weekly plan generation failed: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }

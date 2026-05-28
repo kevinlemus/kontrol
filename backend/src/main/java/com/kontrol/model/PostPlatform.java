@@ -75,6 +75,9 @@ public class PostPlatform {
     @Column(name = "performance_checked_at")
     private OffsetDateTime performanceCheckedAt;
 
+    @Column(name = "content_type")
+    private String contentType;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
