@@ -18,6 +18,10 @@ import { projectsApi } from '../../api/projects'
 import { connectionsApi } from '../../api/connections'
 import type { GenerateResponse, PerformanceInsightDto } from '../../api/types'
 import { WhatsWorking } from './WhatsWorking'
+import { ContentIdeas } from './ContentIdeas'
+import { ImageCanvas } from './ImageCanvas'
+import { imageApi } from '../../api/imageApi'
+import type { GenerateImageResponse } from '../../api/imageApi'
 
 const ALL_PLATFORM_IDS: PlatformId[] = ['IG', 'TT', 'LI', 'RD', 'X', 'FB', 'YT', 'ST', 'IT', 'GJ']
 
@@ -566,6 +570,9 @@ export function ComposeScreen() {
   const [postPlatformIds, setPostPlatformIds] = useState<Record<string, string>>({})
   const [originalContents, setOriginalContents] = useState<Record<string, string>>({})
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([])
+  const [generatingImage, setGeneratingImage] = useState(false)
+  const [generatedImage, setGeneratedImage] = useState<GenerateImageResponse | null>(null)
+  const [showImageCanvas, setShowImageCanvas] = useState(false)
 
   // ── Load connection status when active project changes ─────────────────────
   useEffect(() => {
@@ -849,6 +856,36 @@ export function ComposeScreen() {
         [prev.activePlatformId]: { ...prev.drafts[prev.activePlatformId], hook },
       },
     }))
+  }, [])
+
+  const handleGenerateImage = useCallback(async () => {
+    const active = apiProjects.find(p => p.active)
+    if (!active?.id) return
+    setGeneratingImage(true)
+    try {
+      const result = await imageApi.generate({
+        prompt: state.prompt || activeDraft?.content || '',
+        platform: state.activePlatformId,
+        projectContext: {
+          projectId: active.id,
+          projectName: active.name,
+          whatItIs: active.whatItIs,
+        },
+      })
+      setGeneratedImage(result)
+      setShowImageCanvas(true)
+    } catch {
+      showToast('Image generation failed')
+    }
+    setGeneratingImage(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.prompt, state.activePlatformId, apiProjects, activeDraft])
+
+  const handleImageExport = useCallback((dataUrl: string) => {
+    setState(prev => ({ ...prev, mediaUrl: dataUrl }))
+    setShowImageCanvas(false)
+    showToast('Image added to post')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ─── Desktop layout ─────────────────────────────────────────────────────────
@@ -1143,6 +1180,14 @@ export function ComposeScreen() {
           </div>
         )}
 
+        {/* Content Ideas — collapsed by default, above input */}
+        {!projectsReady || apiProjects.length > 0 ? (
+          <ContentIdeas
+            projectId={activeProjectId}
+            onSelectSuggestion={prompt => setState(prev => ({ ...prev, prompt }))}
+          />
+        ) : null}
+
         {/* Input + voice row — or empty state if no projects */}
         {projectsReady && apiProjects.length === 0 ? (
           <div style={{ padding: '40px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
@@ -1174,8 +1219,79 @@ export function ComposeScreen() {
               onMediaDrop={url => setState(prev => ({ ...prev, mediaUrl: url }))}
               hook={state.drafts[state.activePlatformId]?.hook}
             />
+            {/* Generate Image button */}
+            <div style={{ padding: '0 14px 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                onClick={handleGenerateImage}
+                disabled={generatingImage}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 14px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8,
+                  color: 'var(--text-secondary)',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: generatingImage ? 'not-allowed' : 'pointer',
+                  opacity: generatingImage ? 0.6 : 1,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <rect x="1" y="3" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                  <circle cx="4.5" cy="6" r="1.2" stroke="currentColor" strokeWidth="1.1"/>
+                  <path d="M1 10l3-2.5 2.5 2 2.5-2.5 4 3" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                </svg>
+                {generatingImage ? 'Generating image… (15-30s)' : 'Generate Image'}
+              </button>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', padding: '0 14px 10px', gap: 8 }}>
               <VoiceInput onTranscript={handleVoiceTranscript} />
+            </div>
+          </div>
+        )}
+
+        {/* Image canvas modal */}
+        {showImageCanvas && generatedImage && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 300,
+            overflowY: 'auto',
+            padding: '16px 16px calc(16px + env(safe-area-inset-bottom))',
+          }}>
+            <div style={{
+              background: '#181818',
+              borderRadius: 16,
+              padding: 16,
+              maxWidth: 480,
+              margin: '0 auto',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#fff', fontFamily: 'var(--font-body)' }}>
+                  Edit Image
+                </span>
+                <button
+                  onClick={() => setShowImageCanvas(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}
+                >
+                  &times;
+                </button>
+              </div>
+              <ImageCanvas
+                imageUrl={generatedImage.imageUrl}
+                imageId={generatedImage.imageId}
+                imagePrompt={generatedImage.imagePrompt}
+                seed={generatedImage.seed}
+                hookText={activeDraft?.hook ?? state.prompt}
+                onExport={handleImageExport}
+                onRegenerate={() => setShowImageCanvas(false)}
+                onStartFresh={() => setShowImageCanvas(false)}
+              />
             </div>
           </div>
         )}

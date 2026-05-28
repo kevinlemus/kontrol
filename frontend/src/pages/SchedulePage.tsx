@@ -4,6 +4,7 @@ import { PageHeader } from '../components/shared/PageHeader'
 import { useToast } from '../components/shared/Toast'
 import { performanceApi } from '../api/performance'
 import { projectsApi } from '../api/projects'
+import { WhyOverlay } from '../components/shared/WhyOverlay'
 import type { SmartScheduleTimingDto } from '../api/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -19,6 +20,7 @@ interface ScheduledPost {
   content: string
   status: 'pending' | 'published' | 'cancelled'
   source: 'manual' | 'smart'
+  ai_reasoning?: string | null
 }
 
 interface SmartBatchPost {
@@ -124,6 +126,7 @@ function ScheduledCard({
   const [editContent, setEditContent] = useState(post.content ?? '')
   const [editingTime, setEditingTime] = useState(false)
   const [cancelConfirm, setCancelConfirm] = useState(false)
+  const [showWhy, setShowWhy] = useState(false)
   const { showToast } = useToast()
 
   const tDate = new Date(post.scheduledAt)
@@ -178,19 +181,38 @@ function ScheduledCard({
           {/* Clock + smart badge */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flexShrink: 0 }}>
             {post.source === 'smart' && (
-              <span style={{
-                fontSize: 9,
-                fontWeight: 700,
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--accent)',
-                background: 'rgba(59,130,246,0.12)',
-                border: '1px solid rgba(59,130,246,0.25)',
-                borderRadius: 999,
-                padding: '1px 6px',
-                letterSpacing: 0.3,
-              }}>
-                SMART
-              </span>
+              <>
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--accent)',
+                  background: 'rgba(59,130,246,0.12)',
+                  border: '1px solid rgba(59,130,246,0.25)',
+                  borderRadius: 999,
+                  padding: '1px 6px',
+                  letterSpacing: 0.3,
+                }}>
+                  SMART
+                </span>
+                <button
+                  onClick={e => { e.stopPropagation(); setShowWhy(true) }}
+                  style={{
+                    background: 'none',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 999,
+                    padding: '1px 6px',
+                    fontSize: 9,
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  Why?
+                </button>
+              </>
             )}
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ opacity: 0.45 }}>
               <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.3"/>
@@ -416,6 +438,12 @@ function ScheduledCard({
           </div>
         )}
       </div>
+      {showWhy && (
+        <WhyOverlay
+          reasoning={post.ai_reasoning}
+          onClose={() => setShowWhy(false)}
+        />
+      )}
     </div>
   )
 }

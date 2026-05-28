@@ -40,7 +40,18 @@ const TABS = [
       <span style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 800, lineHeight: 1 }}>r/</span>
     ),
   },
-] as const
+  {
+    path: '/analytics',
+    label: 'Analytics',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <rect x="2" y="14" width="4" height="6" rx="1" stroke="currentColor" strokeWidth="1.6" />
+        <rect x="9" y="9" width="4" height="11" rx="1" stroke="currentColor" strokeWidth="1.6" />
+        <rect x="16" y="4" width="4" height="16" rx="1" stroke="currentColor" strokeWidth="1.6" />
+      </svg>
+    ),
+  },
+]
 
 export function BottomNav() {
   const location = useLocation()

@@ -5,6 +5,8 @@ import { CardContent } from './CardContent'
 import { ActionRow } from './ActionRow'
 import { PreviewCard } from './PreviewCard'
 import { ConfidenceIndicator } from './ConfidenceIndicator'
+import { HookPerformance } from './HookPerformance'
+import { BoostModal } from './BoostModal'
 import { useToast } from '../shared/Toast'
 import { performanceApi } from '../../api/performance'
 import type { PerformanceInsightDto } from '../../api/types'
@@ -49,6 +51,7 @@ export function ActiveCard({
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
   const originalContentRef = useRef<string>(draft.content ?? '')
   const { showToast } = useToast()
+  const [showBoost, setShowBoost] = useState(false)
 
   // Three-dot menu state
   const [menuOpen, setMenuOpen] = useState(false)
@@ -497,7 +500,47 @@ export function ActiveCard({
               </svg>
             </button>
           </div>
+          {/* Hook performance indicator (Feature 6) */}
+          <HookPerformance
+            hookText={draft.hook}
+            projectId={projectId ?? null}
+            platform={platform.id}
+          />
         </div>
+      )}
+
+      {/* Boost button for approved IG/FB posts (Feature 5) */}
+      {draft?.status === 'approved' && (platform.id === 'IG' || platform.id === 'FB') && (
+        <div style={{ padding: '0 16px 8px', flexShrink: 0 }}>
+          <button
+            onClick={() => setShowBoost(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '7px 14px',
+              background: 'rgba(255,165,0,0.1)',
+              border: '1px solid rgba(255,165,0,0.25)',
+              borderRadius: 8,
+              color: '#FFA500',
+              fontFamily: 'var(--font-body)',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            <span>&#128640;</span>
+            Boost as Ad
+          </button>
+        </div>
+      )}
+
+      {showBoost && draft?.postPlatformId && (
+        <BoostModal
+          postId={draft.postPlatformId}
+          platform={platform.id}
+          onClose={() => setShowBoost(false)}
+        />
       )}
 
       {viewMode === 'edit' ? (

@@ -501,6 +501,15 @@ Only include the platforms requested. Do not include others.
         return sb.toString();
     }
 
+    /** Public variant of callClaude for use by other services. */
+    public String callClaudeRaw(String systemPrompt, String userMessage, int maxTokens) {
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("CLAUDE_API_KEY not set — cannot call Claude");
+            throw new RuntimeException("CLAUDE_API_KEY not configured");
+        }
+        return callClaude(systemPrompt, userMessage, maxTokens);
+    }
+
     private String callClaude(String systemPrompt, String userMessage, int maxTokens) {
         Map<String, Object> body = Map.of(
             "model", model,

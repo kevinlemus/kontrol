@@ -7,6 +7,7 @@ import { authApi } from '../api/auth'
 import { connectionsApi } from '../api/connections'
 import { historicalApi } from '../api/historical'
 import { useToast } from '../components/shared/Toast'
+import { CompetitorIntelligence } from '../components/projects/CompetitorIntelligence'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -986,6 +987,19 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
             />
           ))}
         </div>
+
+        {/* Competitor Intelligence (Feature 3) */}
+        <CompetitorIntelligence
+          projectId={project.id}
+          competitor1={form.competitor1 ?? ''}
+          competitor2={form.competitor2 ?? ''}
+          competitor3={form.competitor3 ?? ''}
+          industry={form.industry ?? ''}
+          onFillCompetitor={(index, value) => {
+            const keys = ['competitor1', 'competitor2', 'competitor3'] as const
+            setField(keys[index], value)
+          }}
+        />
       </div>
 
       <InputField label="Phone (optional)" value={form.phone ?? ''} onChange={v => setField('phone', v)} placeholder="e.g. (555) 123-4567" />

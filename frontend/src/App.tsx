@@ -10,11 +10,12 @@ import { ComposePage } from './pages/ComposePage'
 import { SchedulePage } from './pages/SchedulePage'
 import { RedditPage } from './pages/RedditPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { AnalyticsPage } from './pages/AnalyticsPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import OnboardingPage from './pages/OnboardingPage'
 
-const NO_NAV_PATHS = ['/login', '/register', '/onboarding', '/settings']
+const NO_NAV_PATHS = ['/login', '/register', '/onboarding']
 const STORAGE_KEY = 'kontrol_auth'
 
 // ─── Auth loading spinner ─────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ function AppShell() {
                   <Route path="/schedule" element={<SchedulePage />} />
                   <Route path="/reddit" element={<RedditPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
                 </Routes>
               </RequireAuth>
             } />
