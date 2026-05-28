@@ -4,6 +4,7 @@ import { BottomNav } from './components/shared/BottomNav'
 import { ToastProvider } from './components/shared/Toast'
 import { OfflineBanner } from './components/shared/OfflineBanner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { ComposePage } from './pages/ComposePage'
 import { SchedulePage } from './pages/SchedulePage'
@@ -134,8 +135,10 @@ export default function App() {
   }, [])
 
   return (
-    <AuthProvider>
-      <AppShell />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }

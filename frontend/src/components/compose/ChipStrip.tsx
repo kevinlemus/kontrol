@@ -42,16 +42,20 @@ export function ChipStrip({ drafts, activePlatformId, onSelectPlatform, enabledP
           minWidth: 'max-content',
         }}
       >
-        {visiblePlatforms.map(platform => (
-          <PlatformChip
-            key={platform.id}
-            platform={platform}
-            draft={drafts[platform.id]}
-            isActive={platform.id === activePlatformId}
-            onClick={() => onSelectPlatform(platform.id)}
-            isConnected={!connectedPlatforms.length || connectedPlatforms.includes(platform.id)}
-          />
-        ))}
+        {visiblePlatforms.map(platform => {
+          const draft = drafts[platform.id]
+          if (!draft) return null
+          return (
+            <PlatformChip
+              key={platform.id}
+              platform={platform}
+              draft={draft}
+              isActive={platform.id === activePlatformId}
+              onClick={() => onSelectPlatform(platform.id)}
+              isConnected={!connectedPlatforms.length || connectedPlatforms.includes(platform.id)}
+            />
+          )
+        })}
       </div>
     </div>
   )

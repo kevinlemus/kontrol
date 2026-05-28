@@ -87,6 +87,7 @@ function formatDate(iso: string): string {
 function groupByDate(posts: ScheduledPost[]): Map<string, ScheduledPost[]> {
   const map = new Map<string, ScheduledPost[]>()
   for (const p of posts) {
+    if (!p?.scheduledAt) continue
     const key = p.scheduledAt.slice(0, 10)
     if (!map.has(key)) map.set(key, [])
     map.get(key)!.push(p)
@@ -483,7 +484,8 @@ export function SchedulePage() {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   const [smartBatches, setSmartBatches] = useState<SmartBatch[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem('kontrol_smart_schedule') ?? '[]')
+      const parsed = JSON.parse(localStorage.getItem('kontrol_smart_schedule') ?? '[]')
+      return Array.isArray(parsed) ? parsed.filter((b): b is SmartBatch => b != null) : []
     } catch { return [] }
   })
 
@@ -502,8 +504,8 @@ export function SchedulePage() {
   }
 
   const displayedPosts = selectedDay
-    ? posts.filter(p => p.scheduledAt.startsWith(selectedDay))
-    : posts
+    ? posts.filter(p => p?.scheduledAt?.startsWith(selectedDay))
+    : posts.filter(p => p != null)
 
   const grouped = groupByDate(displayedPosts)
   const sortedDateKeys = Array.from(grouped.keys()).sort()
@@ -526,8 +528,9 @@ export function SchedulePage() {
                   setShowLegend(nextOpen)
                   if (nextOpen) {
                     const enabledPlatformIds = posts
+                      .filter(p => p?.platforms)
                       .flatMap(p => p.platforms)
-                      .filter((v, i, a) => a.indexOf(v) === i)
+                      .filter((v, i, a) => v != null && a.indexOf(v) === i)
                     if (activeProjectId) {
                       performanceApi.getScheduleTiming(activeProjectId, enabledPlatformIds)
                         .then(setScheduleTiming)
@@ -632,7 +635,7 @@ export function SchedulePage() {
       {/* Smart Schedule batches timeline */}
       {smartBatches.length > 0 && (
         <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
-          {smartBatches.map((batch, batchIdx) => (
+          {smartBatches.filter(batch => batch?.posts).map((batch, batchIdx) => (
             <div key={batch.id} style={{ marginBottom: batchIdx < smartBatches.length - 1 ? 16 : 0 }}>
               {/* Batch header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -683,7 +686,7 @@ export function SchedulePage() {
               {/* Horizontal timeline */}
               <div style={{ overflowX: 'auto' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 0, minWidth: 'max-content' }}>
-                  {batch.posts.map((post, i) => {
+                  {batch.posts.filter(post => post?.scheduledAt).map((post, i) => {
                     const t = new Date(post.scheduledAt)
                     const fallbackLabel = t.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
                     const isToday = t.toDateString() === new Date().toDateString()
@@ -751,7 +754,7 @@ export function SchedulePage() {
       }}>
         {WEEK_DAYS.map(day => {
           const isToday = day.iso === TODAY_ISO
-          const hasPost = posts.some(p => p.scheduledAt.startsWith(day.iso))
+          const hasPost = posts.some(p => p?.scheduledAt?.startsWith(day.iso))
           const isSelected = selectedDay === day.iso
           return (
             <button

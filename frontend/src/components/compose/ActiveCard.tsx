@@ -170,7 +170,7 @@ export function ActiveCard({
   }, [draft.postPlatformId, showToast])
 
   // Show the "did you post it?" prompt when status is edited_in_app and not dismissed
-  const showEditedInAppPrompt = draft.status === 'edited_in_app' && !editedInAppDismissed
+  const showEditedInAppPrompt = draft?.status === 'edited_in_app' && !editedInAppDismissed
 
   return (
     <div style={{
@@ -441,7 +441,7 @@ export function ActiveCard({
       <ConfidenceIndicator platformId={platform.id} insights={insights} />
 
       {/* Hook — above caption, editable */}
-      {draft.hook && draft.status !== 'approved' && (
+      {draft?.hook && draft?.status !== 'approved' && (
         <div style={{ padding: '0 16px 10px', flexShrink: 0 }}>
           <div style={{
             display: 'flex',

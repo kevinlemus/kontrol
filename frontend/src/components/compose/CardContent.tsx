@@ -59,7 +59,7 @@ export function CardContent({ draft, platform, onContentChange, onTitleChange, o
 
       {/* Post content textarea */}
       <textarea
-        value={draft.content}
+        value={draft.content ?? ''}
         onChange={e => onContentChange(e.target.value)}
         onBlur={e => {
           const edited = e.currentTarget.value

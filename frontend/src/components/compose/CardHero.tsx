@@ -9,10 +9,10 @@ interface CardHeroProps {
 
 export function CardHero({ platform, draft, desktop, onTypeChange }: CardHeroProps) {
   const postTypes = PLATFORM_POST_TYPES[platform.id]
-  const selectedType = draft.selectedPostType
+  const selectedType = draft?.selectedPostType ?? 'post'
   const heroHeight = desktop ? 88 : 52
-  const subreddit = draft.subreddit ?? `@kontrol_${platform.id.toLowerCase()}`
-  const charCount = draft.content.length
+  const subreddit = draft?.subreddit ?? `@kontrol_${platform.id.toLowerCase()}`
+  const charCount = (draft?.content ?? '').length
   const maxChars: Record<string, number> = {
     tweet: 280,
     post: 2200,
