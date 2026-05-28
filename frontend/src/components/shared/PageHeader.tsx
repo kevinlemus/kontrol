@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Settings } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../shared/Toast'
 
@@ -74,6 +75,7 @@ function AvatarBadge({ size = 28 }: { size?: number }) {
           border: '1.5px solid rgba(255,255,255,0.15)',
           cursor: 'pointer',
           padding: 0,
+          touchAction: 'manipulation',
         }}
       >
         {user?.avatarUrl ? (
@@ -168,6 +170,8 @@ export function PageHeader({ title, rightSlot }: PageHeaderProps) {
       flexShrink: 0,
       background: 'var(--bg-base)',
       gap: 8,
+      position: 'relative',
+      zIndex: 20,
     }}>
       {/* Column 1: wordmark — left-aligned */}
       <span style={{
@@ -205,7 +209,6 @@ export function PageHeader({ title, rightSlot }: PageHeaderProps) {
         alignItems: 'center',
         gap: 8,
         justifySelf: 'end',
-        overflow: 'hidden',
       }}>
         {rightSlot}
         {/* Avatar badge — opens dropdown with Settings and Log out */}
@@ -231,10 +234,7 @@ export function PageHeader({ title, rightSlot }: PageHeaderProps) {
           }}
           aria-label="Settings"
         >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <circle cx="9" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M9 1.5v2M9 14.5v2M1.5 9h2M14.5 9h2M3.55 3.55l1.41 1.41M13.04 13.04l1.41 1.41M3.55 14.45l1.41-1.41M13.04 4.96l1.41-1.41" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
+          <Settings size={18} />
         </button>
       </div>
     </header>
