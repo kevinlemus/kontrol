@@ -1,5 +1,13 @@
 import { api } from './client'
 
+export interface AnalyticsAlert {
+  type: 'high_performer' | 'posting_gap' | 'best_time'
+  message: string
+  postId?: string | null
+  action: 'boost' | 'compose' | 'schedule'
+  urgency: 'high' | 'medium' | 'low'
+}
+
 export interface AnalyticsOverview {
   totalPosts: number
   avgEngagement: number | null
@@ -66,4 +74,7 @@ export const analyticsApi = {
 
   generateReport: (projectId: string): Promise<WeeklyReport> =>
     api.post(`/api/v1/reports/generate`, { projectId }),
+
+  alerts: (projectId: string): Promise<AnalyticsAlert[]> =>
+    api.get(`/api/v1/analytics/alerts?projectId=${projectId}`),
 }

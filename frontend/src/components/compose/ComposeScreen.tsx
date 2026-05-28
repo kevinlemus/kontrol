@@ -11,6 +11,7 @@ import { PlatformQueue } from './PlatformQueue'
 import { SmartScheduleModal, ScheduledEntry } from './SmartScheduleModal'
 import { PlatformSelectSheet } from './PlatformSelectSheet'
 import { useToast } from '../shared/Toast'
+import { showLocalNotification } from '../../utils/notifications'
 import { generateApi } from '../../api/generate'
 import { performanceApi } from '../../api/performance'
 import { useAuth } from '../../contexts/AuthContext'
@@ -665,6 +666,21 @@ export function ComposeScreen() {
       localStorage.setItem('kontrol_smart_schedule', JSON.stringify(existing))
     } catch {}
     setShowSmartSchedule(false)
+
+    // PWA notification for scheduled posts
+    if (entries.length > 0) {
+      const next = [...entries].sort((a, b) =>
+        new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+      )[0]
+      const nextDate = new Date(next.scheduledAt)
+      const dayLabel = nextDate.toLocaleDateString('en-US', { weekday: 'long' })
+      const timeLabel = nextDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      showLocalNotification(
+        '🗓 Posts scheduled',
+        `Next one goes out ${dayLabel} at ${timeLabel}.`,
+      )
+    }
+
     navigate('/schedule')
   }, [state.projectName, state.drafts, postPlatformIds, originalContents, navigate])
 
@@ -718,6 +734,11 @@ export function ComposeScreen() {
         drafts: newDrafts,
         generated: true,
       }))
+      // PWA notification for successful generation
+      showLocalNotification(
+        `✨ ${selectedPlatforms.length} post${selectedPlatforms.length !== 1 ? 's' : ''} generated`,
+        'Your drafts are ready for review.',
+      )
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Generation failed'
       let displayMsg = msg

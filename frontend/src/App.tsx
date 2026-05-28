@@ -4,6 +4,7 @@ import { BottomNav } from './components/shared/BottomNav'
 import { ToastProvider } from './components/shared/Toast'
 import { OfflineBanner } from './components/shared/OfflineBanner'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { AlertsProvider } from './contexts/AlertsContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { ComposePage } from './pages/ComposePage'
@@ -14,6 +15,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import OnboardingPage from './pages/OnboardingPage'
+import { requestNotificationPermission, showLocalNotification } from './utils/notifications'
 
 const NO_NAV_PATHS = ['/login', '/register', '/onboarding']
 const STORAGE_KEY = 'kontrol_auth'
@@ -76,6 +78,34 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function AppShell() {
   const location = useLocation()
   const showNav = !NO_NAV_PATHS.includes(location.pathname)
+  const { user } = useAuth()
+
+  // Request notification permission 3 s after first login
+  useEffect(() => {
+    if (user && Notification.permission === 'default') {
+      const t = setTimeout(() => requestNotificationPermission(), 3000)
+      return () => clearTimeout(t)
+    }
+  }, [user])
+
+  // Weekly summary notification — fires once per Monday
+  useEffect(() => {
+    if (!user) return
+    const today = new Date()
+    if (today.getDay() !== 1) return // only on Monday
+    const todayISO = today.toISOString().slice(0, 10)
+    const key = 'kontrol_weekly_summary_seen'
+    if (localStorage.getItem(key) === todayISO) return
+    const t = setTimeout(() => {
+      showLocalNotification(
+        '📊 Your week in review',
+        'Check Analytics → Reports for your weekly performance summary.',
+        '/analytics',
+      )
+      localStorage.setItem(key, todayISO)
+    }, 6000)
+    return () => clearTimeout(t)
+  }, [user])
 
   return (
     <ToastProvider>
@@ -139,7 +169,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <AppShell />
+        <AlertsProvider>
+          <AppShell />
+        </AlertsProvider>
       </AuthProvider>
     </ErrorBoundary>
   )

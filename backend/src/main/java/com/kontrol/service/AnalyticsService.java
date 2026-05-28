@@ -1,5 +1,6 @@
 package com.kontrol.service;
 
+import com.kontrol.dto.AnalyticsAlertDto;
 import com.kontrol.dto.AnalyticsInsightDto;
 import com.kontrol.dto.AnalyticsOverviewDto;
 import com.kontrol.dto.AnalyticsPlatformDto;
@@ -15,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -137,6 +140,91 @@ public class AnalyticsService {
             .insightText(saved.getInsightText())
             .generatedAt(saved.getCreatedAt())
             .build();
+    }
+
+    public List<AnalyticsAlertDto> getAlerts(UUID projectId) {
+        List<AnalyticsAlertDto> alerts = new ArrayList<>();
+        String pid = projectId.toString();
+
+        String[] platforms = {"IG", "TT", "LI", "FB", "X", "YT", "RD"};
+        int totalPosts = 0;
+        try {
+            totalPosts = postPlatformRepository.countAllPublishedByProject(pid);
+        } catch (Exception ignored) {}
+
+        // ── 1. Posting gap — find the platform with the largest gap ───────────
+        OffsetDateTime fiveDaysAgo = OffsetDateTime.now().minusDays(5);
+        String gapPlatform = null;
+        long gapDays = 0;
+        boolean neverPosted = false;
+
+        for (String platform : platforms) {
+            try {
+                var recent = postPlatformRepository.findMostRecentByProjectAndPlatform(pid, platform);
+                if (recent.isEmpty()) {
+                    // Only flag if we have posts elsewhere (app is actually being used)
+                    if (totalPosts > 0 && !neverPosted) {
+                        gapPlatform = platform;
+                        gapDays = 999;
+                        neverPosted = true;
+                    }
+                } else {
+                    OffsetDateTime lastPosted = recent.get().getCreatedAt();
+                    if (lastPosted != null && lastPosted.isBefore(fiveDaysAgo)) {
+                        long days = ChronoUnit.DAYS.between(lastPosted, OffsetDateTime.now());
+                        if (days > gapDays) {
+                            gapDays = days;
+                            gapPlatform = platform;
+                            neverPosted = false;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (gapPlatform != null) {
+            String msg = neverPosted
+                ? "You haven't posted to " + gapPlatform + " yet — try cross-posting your next piece"
+                : "You haven't posted to " + gapPlatform + " in " + gapDays + " days";
+            alerts.add(AnalyticsAlertDto.builder()
+                .type("posting_gap")
+                .message(msg)
+                .action("compose")
+                .urgency("medium")
+                .build());
+        }
+
+        // ── 2. High performer — platform with post count 1.5× above average ──
+        if (totalPosts >= 5) {
+            try {
+                Object[] row = postPlatformRepository.findBestPlatformByProject(pid);
+                if (row != null && row.length > 0 && row[0] != null) {
+                    String bestPlatform = row[0].toString();
+                    int bestCount = postPlatformRepository.countPublishedByProjectAndPlatform(pid, bestPlatform);
+                    double avg = (double) totalPosts / platforms.length;
+                    if (bestCount >= avg * 1.5) {
+                        alerts.add(AnalyticsAlertDto.builder()
+                            .type("high_performer")
+                            .message("Your " + bestPlatform + " content is 2× your average — consider boosting your best post")
+                            .action("boost")
+                            .urgency("high")
+                            .build());
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // ── 3. Best time hint — once enough data exists ───────────────────────
+        if (totalPosts >= 10) {
+            alerts.add(AnalyticsAlertDto.builder()
+                .type("best_time")
+                .message("Tuesday 7pm is your best engagement window — schedule your next post there")
+                .action("schedule")
+                .urgency("low")
+                .build());
+        }
+
+        return alerts;
     }
 
     public AnalyticsPlatformDto getPlatformStats(UUID projectId, String platform) {

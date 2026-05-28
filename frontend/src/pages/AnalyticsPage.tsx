@@ -3,6 +3,7 @@ import { PageHeader } from '../components/shared/PageHeader'
 import { useToast } from '../components/shared/Toast'
 import { analyticsApi } from '../api/analyticsApi'
 import { projectsApi } from '../api/projects'
+import { AlertsBanner } from '../components/shared/AlertsBanner'
 import type {
   AnalyticsOverview,
   AnalyticsPost,
@@ -394,6 +395,10 @@ export function AnalyticsPage() {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px calc(80px + env(safe-area-inset-bottom))' }} className="print-page">
+
+        <div style={{ paddingTop: 16 }}>
+          <AlertsBanner />
+        </div>
 
         {mainTab === 'overview' && (
           <>

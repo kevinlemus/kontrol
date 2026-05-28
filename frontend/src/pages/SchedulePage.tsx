@@ -5,6 +5,8 @@ import { useToast } from '../components/shared/Toast'
 import { performanceApi } from '../api/performance'
 import { projectsApi } from '../api/projects'
 import { WhyOverlay } from '../components/shared/WhyOverlay'
+import { AlertsBanner } from '../components/shared/AlertsBanner'
+import { showLocalNotification } from '../utils/notifications'
 import type { SmartScheduleTimingDto } from '../api/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -527,6 +529,26 @@ export function SchedulePage() {
       .catch(() => {})
   }, [])
 
+  // Notify once per day if posts are scheduled for today
+  useEffect(() => {
+    const todayISO = toLocalISO(new Date())
+    const key = 'kontrol_lastScheduleNotif'
+    if (localStorage.getItem(key) === todayISO) return
+
+    const todayPosts = smartBatches
+      .flatMap(b => b.posts)
+      .filter(p => p?.scheduledAt?.startsWith(todayISO))
+
+    if (todayPosts.length > 0) {
+      showLocalNotification(
+        `📅 ${todayPosts.length} post${todayPosts.length > 1 ? 's' : ''} scheduled today`,
+        'Tap to review your schedule.',
+      )
+      localStorage.setItem(key, todayISO)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [smartBatches])
+
   const handleRemove = (id: string) => {
     setPosts(ps => ps.filter(p => p.id !== id))
   }
@@ -838,6 +860,7 @@ export function SchedulePage() {
 
       {/* Post list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px calc(72px + env(safe-area-inset-bottom))' }}>
+        <AlertsBanner />
         {selectedDay && displayedPosts.length === 0 && (
           <EmptyState onGoToCompose={() => navigate('/compose')} />
         )}

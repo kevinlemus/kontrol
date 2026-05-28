@@ -60,6 +60,18 @@ public class AnalyticsController {
         }
     }
 
+    @GetMapping("/alerts")
+    public ResponseEntity<?> getAlerts(@RequestParam UUID projectId) {
+        try {
+            return ResponseEntity.ok(analyticsService.getAlerts(projectId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Analytics alerts failed: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/platform")
     public ResponseEntity<?> getPlatformStats(
             @RequestParam UUID projectId,
