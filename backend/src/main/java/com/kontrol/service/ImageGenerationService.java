@@ -37,7 +37,7 @@ public class ImageGenerationService {
     public GenerateImageResponse generateImage(GenerateImageRequest request) {
         long seed = request.getSeed() != null ? request.getSeed() : Math.abs(random.nextLong());
         String imagePrompt = buildOptimizedPrompt(request.getPrompt(), request.getPlatform(), request.getProjectContext());
-        String imageUrl = callReplicate(imagePrompt, seed);
+        String imageUrl = callReplicate(imagePrompt, request.getPlatform());
 
         GeneratedImage saved = generatedImageRepository.save(GeneratedImage.builder()
             .imageUrl(imageUrl)
@@ -70,7 +70,7 @@ public class ImageGenerationService {
             imagePrompt = existing.getImagePrompt();
         }
 
-        String imageUrl = callReplicate(imagePrompt, newSeed);
+        String imageUrl = callReplicate(imagePrompt, null);
 
         GeneratedImage saved = generatedImageRepository.save(GeneratedImage.builder()
             .imageUrl(imageUrl)
@@ -111,7 +111,17 @@ public class ImageGenerationService {
         return claudeService.callClaudeRaw(systemSb.toString(), userSb.toString(), 512);
     }
 
-    private String callReplicate(String prompt, long seed) {
+    private String getAspectRatio(String platform) {
+        if (platform == null) return "1:1";
+        return switch (platform.toLowerCase()) {
+            case "ig_story", "tt", "reels", "yt_short" -> "9:16";
+            case "yt"                                   -> "16:9";
+            case "li", "x"                              -> "1.91:1";
+            default                                     -> "1:1"; // ig feed, fb, and everything else
+        };
+    }
+
+    private String callReplicate(String prompt, String platform) {
         if (replicateApiKey == null || replicateApiKey.isBlank()) {
             log.warn("REPLICATE_API_KEY not set — returning placeholder image URL");
             return "https://placehold.co/1024x1024?text=Image+Generation+Disabled";
@@ -119,15 +129,20 @@ public class ImageGenerationService {
 
         WebClient client = webClientBuilder.build();
 
-        // Submit prediction
+        // Submit prediction to flux-2-pro
         Map<String, Object> body = Map.of(
-            "input", Map.of("prompt", prompt, "seed", seed)
+            "input", Map.of(
+                "prompt",         prompt,
+                "aspect_ratio",   getAspectRatio(platform),
+                "output_format",  "webp",
+                "output_quality", 90
+            )
         );
 
         String submitResponse;
         try {
             submitResponse = client.post()
-                .uri(REPLICATE_BASE + "/models/black-forest-labs/flux-schnell/predictions")
+                .uri(REPLICATE_BASE + "/models/black-forest-labs/flux-2-pro/predictions")
                 .header("Authorization", "Token " + replicateApiKey)
                 .header("Content-Type", "application/json")
                 .bodyValue(body)
@@ -180,6 +195,11 @@ public class ImageGenerationService {
 
                 if ("succeeded".equals(status)) {
                     JsonNode output = pollNode.path("output");
+                    // flux-2-pro returns a direct URL string; flux-schnell returned an array.
+                    // Handle both shapes for safety.
+                    if (output.isTextual()) {
+                        return output.asText();
+                    }
                     if (output.isArray() && output.size() > 0) {
                         return output.get(0).asText();
                     }
