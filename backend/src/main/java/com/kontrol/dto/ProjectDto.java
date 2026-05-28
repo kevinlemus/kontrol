@@ -25,4 +25,5 @@ public class ProjectDto {
     private String phone;
     private String bookingUrl;
     private String serviceArea;
+    private String adAccountId;
 }

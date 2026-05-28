@@ -5,6 +5,7 @@ import { useToast } from '../shared/Toast'
 interface BoostModalProps {
   postId: string
   platform: string
+  adAccountId?: string
   onClose: () => void
 }
 
@@ -22,7 +23,7 @@ const DEFAULT_AUDIENCE = {
   interests: ['Social media', 'Technology', 'Entertainment'],
 }
 
-export function BoostModal({ postId, platform, onClose }: BoostModalProps) {
+export function BoostModal({ postId, platform, adAccountId, onClose }: BoostModalProps) {
   const { showToast } = useToast()
   const [budget, setBudget] = useState<number>(10)
   const [customBudget, setCustomBudget] = useState('')
@@ -356,6 +357,25 @@ export function BoostModal({ postId, platform, onClose }: BoostModalProps) {
           </span>
           <span style={{ fontSize: 18, fontWeight: 800, color: '#3B82F6', fontFamily: 'var(--font-body)' }}>
             {formatReach(estimatedReach)} people
+          </span>
+        </div>
+
+        {/* Ad account indicator */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          marginBottom: 16,
+          padding: '8px 12px',
+          background: 'rgba(255,255,255,0.04)',
+          borderRadius: 8,
+          border: '1px solid rgba(255,255,255,0.07)',
+        }}>
+          <span style={{ fontSize: 14 }}>{adAccountId ? '🏢' : '🌐'}</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+            {adAccountId
+              ? 'Running from project ad account'
+              : 'Running from your default ad account'}
           </span>
         </div>
 

@@ -66,6 +66,9 @@ public class Project {
     @Column(name = "service_area")
     private String serviceArea;
 
+    @Column(name = "ad_account_id")
+    private String adAccountId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

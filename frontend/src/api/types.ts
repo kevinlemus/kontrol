@@ -12,6 +12,7 @@ export interface ApiProject {
   phone?: string | null
   bookingUrl?: string | null
   serviceArea?: string | null
+  adAccountId?: string | null
 }
 
 export interface ApiDraft {

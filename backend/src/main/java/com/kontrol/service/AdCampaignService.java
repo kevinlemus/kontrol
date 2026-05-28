@@ -60,9 +60,14 @@ public class AdCampaignService {
             .updatedAt(OffsetDateTime.now())
             .build();
 
+        // Resolve ad account ID: project-level takes precedence, fall back to global env var
+        String resolvedAdAccountId = (project.getAdAccountId() != null && !project.getAdAccountId().isBlank())
+            ? project.getAdAccountId()
+            : metaAdAccountId;
+
         // Attempt Meta API call if configured
         if ("meta".equalsIgnoreCase(request.getPlatform())
-                && metaAdAccountId != null && !metaAdAccountId.isBlank()) {
+                && resolvedAdAccountId != null && !resolvedAdAccountId.isBlank()) {
             Optional<GlobalPlatformAccount> fbAccount = globalPlatformAccountRepository
                 .findByPlatform("facebook");
             if (fbAccount.isPresent() && fbAccount.get().getAccessToken() != null) {
@@ -70,7 +75,8 @@ public class AdCampaignService {
                     String platformCampaignId = createMetaCampaign(
                         fbAccount.get().getAccessToken(),
                         project.getName(),
-                        request.getDailyBudget()
+                        request.getDailyBudget(),
+                        resolvedAdAccountId
                     );
                     campaign.setPlatformCampaignId(platformCampaignId);
                     campaign.setStatus("active");
@@ -168,7 +174,7 @@ public class AdCampaignService {
         }
     }
 
-    private String createMetaCampaign(String accessToken, String projectName, BigDecimal dailyBudget) {
+    private String createMetaCampaign(String accessToken, String projectName, BigDecimal dailyBudget, String adAccountId) {
         Map<String, Object> body = Map.of(
             "name", "Kontrol — " + projectName,
             "objective", "OUTCOME_AWARENESS",
@@ -178,7 +184,7 @@ public class AdCampaignService {
         );
 
         String response = webClientBuilder.build().post()
-            .uri("https://graph.facebook.com/v18.0/act_" + metaAdAccountId + "/campaigns")
+            .uri("https://graph.facebook.com/v18.0/act_" + adAccountId + "/campaigns")
             .bodyValue(body)
             .retrieve()
             .bodyToMono(String.class)

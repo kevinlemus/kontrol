@@ -46,6 +46,7 @@ interface Project {
   phone?: string
   bookingUrl?: string
   serviceArea?: string
+  adAccountId?: string
   projectContextText?: string
   contextSource?: string
 }
@@ -1006,6 +1007,14 @@ function EditPanel({ project, onSave, onCancel, onConnectInSettings }: EditPanel
       <InputField label="Booking URL (optional)" value={form.bookingUrl ?? ''} onChange={v => setField('bookingUrl', v)} placeholder="e.g. https://yourbusiness.com/book" />
       <InputField label="Service area (optional)" value={form.serviceArea ?? ''} onChange={v => setField('serviceArea', v)} placeholder="e.g. Chicago, IL and surrounding suburbs" />
 
+      {/* Ad Account ID */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <InputField label="Meta Ad Account ID (optional)" value={form.adAccountId ?? ''} onChange={v => setField('adAccountId', v)} placeholder="Meta Ad Account ID — e.g. 123456789" />
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+          Find this in Meta Business Manager → Ad Accounts
+        </span>
+      </div>
+
       {/* ── Connected Accounts section ── */}
       {(() => {
         const enabledKeys = ALL_PLATFORM_KEYS.filter(pk => form.platforms[pk]?.enabled)
@@ -1445,6 +1454,7 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
   const [phone, setPhone] = useState('')
   const [bookingUrl, setBookingUrl] = useState('')
   const [serviceArea, setServiceArea] = useState('')
+  const [adAccountId, setAdAccountId] = useState('')
 
   // URL analysis state
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -1536,6 +1546,7 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
       phone: phone.trim() || undefined,
       bookingUrl: bookingUrl.trim() || undefined,
       serviceArea: serviceArea.trim() || undefined,
+      adAccountId: adAccountId.trim() || undefined,
       projectContextText: projectContextText.trim() || undefined,
       contextSource: contextSource || undefined,
     }
@@ -1781,6 +1792,23 @@ function NewProjectForm({ onCreate, onCancel }: NewProjectFormProps) {
           <input type="text" value={serviceArea} onChange={e => setServiceArea(e.target.value)} placeholder="e.g. Chicago, IL and surrounding suburbs" style={inputBase} />
         </div>
 
+        {/* Meta Ad Account */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Meta Ad Account (optional)
+          </label>
+          <input
+            type="text"
+            value={adAccountId}
+            onChange={e => setAdAccountId(e.target.value)}
+            placeholder="Meta Ad Account ID — e.g. 123456789"
+            style={inputBase}
+          />
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+            Find this in Meta Business Manager → Ad Accounts
+          </span>
+        </div>
+
         <button
           onClick={handleCreate}
           style={{
@@ -1833,7 +1861,7 @@ function useIsNarrow() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-function DEFAULT_PROJECT_FROM_API(ap: { id: string; name: string; whatItIs?: string | null; whoItsFor?: string | null; currentStatus?: string | null; active: boolean; phone?: string | null; bookingUrl?: string | null; serviceArea?: string | null }): Project {
+function DEFAULT_PROJECT_FROM_API(ap: { id: string; name: string; whatItIs?: string | null; whoItsFor?: string | null; currentStatus?: string | null; active: boolean; phone?: string | null; bookingUrl?: string | null; serviceArea?: string | null; adAccountId?: string | null }): Project {
   return {
     id: ap.id,
     name: ap.name,
@@ -1847,6 +1875,7 @@ function DEFAULT_PROJECT_FROM_API(ap: { id: string; name: string; whatItIs?: str
     phone: ap.phone ?? undefined,
     bookingUrl: ap.bookingUrl ?? undefined,
     serviceArea: ap.serviceArea ?? undefined,
+    adAccountId: ap.adAccountId ?? undefined,
   }
 }
 
@@ -1896,6 +1925,7 @@ export function ProjectsPage() {
       phone: updated.phone,
       bookingUrl: updated.bookingUrl,
       serviceArea: updated.serviceArea,
+      adAccountId: updated.adAccountId,
     }).catch(() => {})
   }, [])
 
@@ -1909,6 +1939,7 @@ export function ProjectsPage() {
       phone: newProject.phone,
       bookingUrl: newProject.bookingUrl,
       serviceArea: newProject.serviceArea,
+      adAccountId: newProject.adAccountId,
     }).then(async created => {
       const projectWithId = { ...newProject, id: created.id }
       setProjects(ps => [...ps, projectWithId])
