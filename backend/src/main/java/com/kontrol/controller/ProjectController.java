@@ -32,9 +32,17 @@ public class ProjectController {
     private final JwtUtil jwtUtil;
 
     @GetMapping
-    public ResponseEntity<List<ProjectDto>> listProjects() {
-        return ResponseEntity.ok(projectRepository.findAllByOrderByCreatedAtDesc()
-            .stream().map(this::toDto).toList());
+    public ResponseEntity<?> listProjects(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        UUID userId = extractUserId(authHeader);
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        log.info("Fetching projects for user: {}", userId);
+        List<ProjectDto> projects = projectRepository.findByUserIdOrLegacy(userId)
+            .stream().map(this::toDto).toList();
+        log.info("Found {} projects for user: {}", projects.size(), userId);
+        return ResponseEntity.ok(projects);
     }
 
     @GetMapping("/{id}")
@@ -48,10 +56,11 @@ public class ProjectController {
     public ResponseEntity<?> createProject(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody @Valid CreateProjectRequest req) {
-        String token = jwtUtil.extractBearer(authHeader);
-        if (token == null || !jwtUtil.isValid(token)) {
+        UUID userId = extractUserId(authHeader);
+        if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
+        log.info("Creating project '{}' for user: {}", req.getName(), userId);
         Project p = Project.builder()
             .name(req.getName()).whatItIs(req.getWhatItIs())
             .whoItsFor(req.getWhoItsFor())
@@ -60,9 +69,13 @@ public class ProjectController {
             .competitor3(req.getCompetitor3()).industry(req.getIndustry())
             .projectContextText(req.getProjectContextText())
             .contextSource(req.getContextSource())
-            .phone(req.getPhone()).bookingUrl(req.getBookingUrl()).serviceArea(req.getServiceArea())
+            .phone(req.getPhone()).bookingUrl(req.getBookingUrl())
+            .serviceArea(req.getServiceArea()).adAccountId(req.getAdAccountId())
+            .userId(userId)
             .build();
-        return ResponseEntity.status(201).body(toDto(projectRepository.save(p)));
+        ProjectDto saved = toDto(projectRepository.save(p));
+        log.info("Created project {} for user: {}", saved.getId(), userId);
+        return ResponseEntity.status(201).body(saved);
     }
 
     @PutMapping("/{id}")
@@ -70,11 +83,17 @@ public class ProjectController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable UUID id,
             @RequestBody CreateProjectRequest req) {
-        String token = jwtUtil.extractBearer(authHeader);
-        if (token == null || !jwtUtil.isValid(token)) {
+        UUID userId = extractUserId(authHeader);
+        if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
         return projectRepository.findById(id).map(p -> {
+            // Allow update if this user owns it OR it's a legacy project with no owner
+            if (p.getUserId() != null && !p.getUserId().equals(userId)) {
+                return ResponseEntity.status(403).<Object>body(Map.of("error", "Forbidden"));
+            }
+            // Claim ownership of legacy (null user_id) projects on update
+            if (p.getUserId() == null) p.setUserId(userId);
             p.setName(req.getName()); p.setWhatItIs(req.getWhatItIs());
             p.setWhoItsFor(req.getWhoItsFor());
             p.setCurrentStatus(req.getCurrentStatus());
@@ -82,7 +101,8 @@ public class ProjectController {
             p.setCompetitor3(req.getCompetitor3()); p.setIndustry(req.getIndustry());
             p.setProjectContextText(req.getProjectContextText());
             p.setContextSource(req.getContextSource());
-            p.setPhone(req.getPhone()); p.setBookingUrl(req.getBookingUrl()); p.setServiceArea(req.getServiceArea());
+            p.setPhone(req.getPhone()); p.setBookingUrl(req.getBookingUrl());
+            p.setServiceArea(req.getServiceArea()); p.setAdAccountId(req.getAdAccountId());
             return ResponseEntity.ok((Object) toDto(projectRepository.save(p)));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -91,11 +111,12 @@ public class ProjectController {
     public ResponseEntity<?> activate(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable UUID id) {
-        String token = jwtUtil.extractBearer(authHeader);
-        if (token == null || !jwtUtil.isValid(token)) {
+        UUID userId = extractUserId(authHeader);
+        if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
-        projectRepository.findAll().forEach(p -> {
+        // Only deactivate projects belonging to this user (or legacy null-owner projects)
+        projectRepository.findByUserIdOrLegacy(userId).forEach(p -> {
             p.setActive(p.getId().equals(id));
             projectRepository.save(p);
         });
@@ -106,11 +127,15 @@ public class ProjectController {
     public ResponseEntity<?> delete(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable UUID id) {
-        String token = jwtUtil.extractBearer(authHeader);
-        if (token == null || !jwtUtil.isValid(token)) {
+        UUID userId = extractUserId(authHeader);
+        if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
         }
-        projectRepository.deleteById(id);
+        projectRepository.findById(id).ifPresent(p -> {
+            if (p.getUserId() == null || p.getUserId().equals(userId)) {
+                projectRepository.deleteById(id);
+            }
+        });
         return ResponseEntity.noContent().build();
     }
 
@@ -249,6 +274,16 @@ public class ProjectController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    private UUID extractUserId(String authHeader) {
+        String token = jwtUtil.extractBearer(authHeader);
+        if (token == null || !jwtUtil.isValid(token)) return null;
+        try {
+            return UUID.fromString(jwtUtil.extractUserId(token));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     private ProjectDto toDto(Project p) {
         return ProjectDto.builder()
             .id(p.getId().toString()).name(p.getName())
@@ -259,7 +294,8 @@ public class ProjectController {
             .competitor3(p.getCompetitor3()).industry(p.getIndustry())
             .projectContextText(p.getProjectContextText())
             .contextSource(p.getContextSource())
-            .phone(p.getPhone()).bookingUrl(p.getBookingUrl()).serviceArea(p.getServiceArea())
+            .phone(p.getPhone()).bookingUrl(p.getBookingUrl())
+            .serviceArea(p.getServiceArea()).adAccountId(p.getAdAccountId())
             .build();
     }
 }

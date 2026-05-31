@@ -1882,6 +1882,7 @@ function DEFAULT_PROJECT_FROM_API(ap: { id: string; name: string; whatItIs?: str
 export function ProjectsPage() {
   const navigate = useNavigate()
   const isNarrow = useIsNarrow()
+  const { showToast } = useToast()
 
   const [projects, setProjects] = useState<Project[]>([])
   const [projectsLoading, setProjectsLoading] = useState(true)
@@ -1889,18 +1890,26 @@ export function ProjectsPage() {
 
   // Load exclusively from API on mount
   useEffect(() => {
-    projectsApi.list()
-      .then(apiProjects => {
+    const load = async () => {
+      console.log('Loading projects...')
+      setProjectsLoading(true)
+      try {
+        const apiProjects = await projectsApi.list()
+        console.log('Projects loaded:', apiProjects)
         if ((apiProjects ?? []).length > 0) {
           const mapped = (apiProjects ?? []).map(ap => DEFAULT_PROJECT_FROM_API(ap))
           setProjects(mergePersonasIfAbsent(mapped))
+        } else {
+          setProjects([])
         }
+      } catch (err) {
+        console.error('Failed to load projects:', err)
+        setProjects([])
+      } finally {
         setProjectsLoading(false)
-      })
-      .catch(() => {
-        // Backend offline — show empty state
-        setProjectsLoading(false)
-      })
+      }
+    }
+    load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1929,18 +1938,28 @@ export function ProjectsPage() {
     }).catch(() => {})
   }, [])
 
-  const handleCreate = useCallback((newProject: Project, pendingFiles: File[]) => {
-    // Try to create via API and use the returned ID
-    projectsApi.create({
+  const handleCreate = useCallback(async (newProject: Project, pendingFiles: File[]) => {
+    const projectData = {
       name: newProject.name,
       whatItIs: newProject.whatItIs,
       whoItsFor: newProject.whoItsFor,
       currentStatus: newProject.currentStatus,
+      competitor1: newProject.competitor1,
+      competitor2: newProject.competitor2,
+      competitor3: newProject.competitor3,
+      industry: newProject.industry,
       phone: newProject.phone,
       bookingUrl: newProject.bookingUrl,
       serviceArea: newProject.serviceArea,
       adAccountId: newProject.adAccountId,
-    }).then(async created => {
+      projectContextText: newProject.projectContextText,
+      contextSource: newProject.contextSource,
+    }
+    console.log('Creating project with:', projectData)
+    setShowNewForm(false)
+    try {
+      const created = await projectsApi.create(projectData)
+      console.log('Project created:', created)
       const projectWithId = { ...newProject, id: created.id }
       setProjects(ps => [...ps, projectWithId])
       // Upload queued files now that we have a real project ID
@@ -1951,12 +1970,13 @@ export function ProjectsPage() {
           // Non-fatal — context upload failure should not block project creation
         }
       }
-    }).catch(() => {
-      // Fall back to local ID
-      setProjects(ps => [...ps, newProject])
-    })
-    setShowNewForm(false)
-  }, [])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('Project creation failed:', err)
+      showToast('Failed to create project — ' + msg)
+      // Do NOT add to local state with a fake ID; user can retry
+    }
+  }, [showToast])
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-base)' }}>

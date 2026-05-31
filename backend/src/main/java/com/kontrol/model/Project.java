@@ -69,6 +69,9 @@ public class Project {
     @Column(name = "ad_account_id")
     private String adAccountId;
 
+    @Column(name = "user_id")
+    private UUID userId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
